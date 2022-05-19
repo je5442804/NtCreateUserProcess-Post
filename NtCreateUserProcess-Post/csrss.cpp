@@ -126,11 +126,11 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			CreateInfo.SuccessState.SectionHandle,
 			TokenHandle,
 			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,//0x4 
+			0,//Unknow_CompatCache
 			0,//AppCompatSxsData
 			0,//AppCompatSxsDataSize
-			0,
 			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,//DllCharacteristics
-			NULL,
+			NULL,//AppXPath?
 			(PPEB)CreateInfo.SuccessState.PebAddressNative,
 			(PVOID)CreateInfo.SuccessState.ManifestAddress,
 			CreateInfo.SuccessState.ManifestSize,
@@ -139,7 +139,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&SxsCreateProcessUtilityStruct
 		);
 		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-
 
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
@@ -174,9 +173,9 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			CreateInfo.SuccessState.SectionHandle,
 			TokenHandle,
 			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,//0x4 
+			0,
 			0,//AppCompatSxsData
 			0,//AppCompatSxsDataSize
-			0,
 			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,//DllCharacteristics
 			NULL,
 			(PPEB)CreateInfo.SuccessState.PebAddressNative,
@@ -246,7 +245,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		DataLength = sizeof(*BaseCreateProcessMessage);//264
 
 	}
-	else if (OSBuildNumber >= 10240)//win 10 10240 到win 10 17763 [1809] 还没测试和逆向,只弄了个2016,先这样吧
+	else if (OSBuildNumber >= 10240)//win 10 10240 鍒皐in 10 17763 [1809] 杩樻病娴嬭瘯鍜岄�嗗悜,鍙紕浜嗕釜2016,鍏堣繖鏍峰惂
 	{
 		wprintf(L"[*] Windows 10 10240-17763 ??? | Windows Server 2016\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
@@ -267,7 +266,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			hProcess,
 			CreateInfo.SuccessState.SectionHandle,
 			TokenHandle,
-			FALSE,//CompatCacheLookupSuccess
+			FALSE,//AlreadyCheck
 			FALSE,//IsRemovableMedia
 			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
 			0,
@@ -293,15 +292,12 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
 		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
 
-		DataLength = sizeof(*BaseCreateProcessMessage);//264
-
-		
+		DataLength = sizeof(*BaseCreateProcessMessage);//264		
 	}
 	else if (OSBuildNumber >= 8423)
 	{
 		//sizeof(BASE_SXS_CREATEPROCESS_MSG_2012);//->sxs = 192
 		//sizeof(BASE_CREATEPROCESS_MSG_2012);// createprocess total-> 272
-		
 		PBASE_CREATEPROCESS_MSG_2012 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2012;
 		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
 
@@ -321,7 +317,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 				CreateInfo.SuccessState.FileHandle,
 				hProcess,
 				CreateInfo.SuccessState.SectionHandle,
-				FALSE,//CompatCacheLookupSuccess
+				FALSE,//AlreadyCheck
 				FALSE,//IsRemovableMedia
 				(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
 				0,
@@ -349,7 +345,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 				hProcess,
 				CreateInfo.SuccessState.SectionHandle,
 				TokenHandle,
-				FALSE,//CompatCacheLookupSuccess
+				FALSE,//AlreadyCheck
 				FALSE,//IsRemovableMedia
 				(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
 				0,
@@ -377,7 +373,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//272 win server 2012
 	}
-
 	else if (OSBuildNumber >= 7600)
 	{
 		wprintf(L"Windows 7 | Windows Server 2008 | Windows Server 2008 R2\n");
@@ -409,7 +404,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			CreateInfo.SuccessState.FileHandle,
 			hProcess,
 			CreateInfo.SuccessState.SectionHandle,
-			FALSE,//PreFileDeviceFlags
+			FALSE,//AlreadyCheck
 			FALSE,//IsRemovableMedia
 			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
 			0,
@@ -424,7 +419,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&SxsCreateProcessUtilityStruct_2008 //472
 		);
 		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-		
 		if (!NT_SUCCESS(Status) || BaseCreateProcessMessage->Sxs.Win32Path.Length <= 2)
 		{
 			wprintf(L"Error?\n");
