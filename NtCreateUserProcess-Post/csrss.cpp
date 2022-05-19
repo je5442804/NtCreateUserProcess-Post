@@ -191,7 +191,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//536 = 0x1c8
 	}
-	else if (OSBuildNumber >= 17763)//win server 2019 | win 10 1809
+	else if (OSBuildNumber >= 17110)//win server 2019 | win 10 1809
 	{
 
 		wprintf(L"[*] |  Windows 10 1803 | Windows 10 1809 | Windows Server 2019\n");
@@ -237,7 +237,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		DataLength = sizeof(*BaseCreateProcessMessage);//264
 
 	}
-	else if (OSBuildNumber >= 10240)//win 10 10240 到win 10 17763 [1809] 还没测试和逆向,只弄了个2016,先这样吧
+	else if (OSBuildNumber >= 10240)//win 10 10240 鍒皐in 10 17763 [1809] 杩樻病娴嬭瘯鍜岄�嗗悜,鍙紕浜嗕釜2016,鍏堣繖鏍峰惂
 	{
 		wprintf(L"[*] Windows 10 10240-17763 ??? | Windows Server 2016\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
