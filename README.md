@@ -21,7 +21,7 @@ Different from his reverse route, I didn't kernel debug ALPC and csrss.exe,
 but mainly depends on IDA and memory analysis parameter.
 
 ## My Build Environment
-Visual Studio 2022 (Visual Studio 2019 should work)
+Visual Studio 2022 (Visual Studio 2019 should work)  
 Relase x64
 
 ## BasepConstructSxsCreateProcessMessage??
@@ -41,4 +41,4 @@ and simplify the project code without BasepConstructSxsCreateProcessMessage.
  Windows 7 SP1 x64 (7601)  
  Windows Server 2008 x64 (7600）  
  
-(win 10 10240->17763 not exactly test, Will be updated soon)
+(win 10 10240->17763 not exactly tested, Will be updated soon)  
