@@ -10,7 +10,7 @@ int wmain(int argc, wchar_t* argv[])
 	LPCWSTR ImageName = NULL;
 	if (argc == 1)
 	{
-		ImageName = L"C:\\Program Files\\Internet Explorer\\iexplore.exe";
+		ImageName = L"C:\\Windows\\System32\\dfrgui.exe";
 		wprintf(L"[*] Default: %ls\n", ImageName);
 	}
 	else if (argc == 2)
@@ -19,9 +19,8 @@ int wmain(int argc, wchar_t* argv[])
 	}
 	else
 	{
-		wprintf(L"[*] example: NtCreateUserProcess-Post.exe C:\\Windows\\system32\\notepad.exe\n");
+		wprintf(L"[*] example: NtCreateUserProcess-Post.exe C:\\Windows\\system32\\notepad.exe\n[!] On Windows 11 Notepad.exe is AppX so it doesn't work.(AppX no supported yet)\n");
 	}
-
 	SECTION_IMAGE_INFORMATION SectionImageInfomation = { 0 };
 	ULONG sizeReturn = 0;
 	HANDLE ParentProcessHandle = NULL;
@@ -32,8 +31,7 @@ int wmain(int argc, wchar_t* argv[])
 	HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
 	
 	t_RtlCreateProcessParametersEx RtlCreateProcessParametersEx = (t_RtlCreateProcessParametersEx)GetProcAddress(ntdll, "RtlCreateProcessParametersEx");
-	//clientId.UniqueProcess = UlongToHandle(294396);
-	clientId.UniqueProcess = UlongToHandle(GetCurrentProcessId()); //GetCurrentProcessId()
+	clientId.UniqueProcess = UlongToHandle(GetCurrentProcessId());
 	clientId.UniqueThread = (HANDLE)0;
 	
 	wprintf(L"[*] NtOpenProcess: 0x%08x\n", NtOpenProcess(&ParentProcessHandle, PROCESS_ALL_ACCESS, &objectAttributes, &clientId));
@@ -112,7 +110,6 @@ int wmain(int argc, wchar_t* argv[])
 		NULL,
 		NULL,
 		RTL_USER_PROCESS_PARAMETERS_NORMALIZED);
-
 	//wprintf(L"RtlCreateProcessParametersEx: %d\nProcessParameters Length: %d\n", Status, ProcessParameters->Length);
 	ULONG AttributeListCount = 4;
 	SIZE_T TotalLength = AttributeListCount * sizeof(PS_ATTRIBUTE) + sizeof(SIZE_T);
@@ -155,9 +152,4 @@ int wmain(int argc, wchar_t* argv[])
 	wprintf(L"[*] peb2.ActivationContextData 0x%p\n", peb2.ActivationContextData);
 	wprintf(L"[*] NtResumeThread: 0x%08x\n", NtResumeThread(hThread, 0));
 	return 0;
-}	
-/*
-	LARGE_INTEGER Ntdelay;
-	Ntdelay.QuadPart = (LONGLONG)(-30000000LL);
-	wprintf(L"[*] NtDelayExecution 0x%08x\n", NtDelayExecution(TRUE, &Ntdelay));
-*/
+}

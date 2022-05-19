@@ -85,7 +85,6 @@ typedef enum _BASESRV_API_NUMBER {
 #define PORT_CONNECT 0x0001
 #define PORT_ALL_ACCESS (STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1)
 
-
 typedef struct _CSR_API_CONNECTINFO {
     PVOID SharedSectionBase;
     PVOID SharedStaticServerData;
@@ -127,8 +126,6 @@ typedef struct _CSR_API_MSG {
     };
 } CSR_API_MSG, * PCSR_API_MSG;
 //432 = 0x1B0, but should be 456 = 0x1C8 差=24
-
-
 typedef struct _SXS_CONSTANT_WIN32_NT_PATH_PAIR
 {
     PCUNICODE_STRING Win32;
@@ -185,7 +182,6 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG {
     UNICODE_STRING Separator;//168
     char Unknow22[16];
 } BASE_SXS_CREATEPROCESS_MSG, * PBASE_SXS_CREATEPROCESS_MSG; //136 旧的
-
 
 typedef struct _NEW_BASE_SXS_CREATEPROCESS_MSG {//win 10 new
     ULONG   Flags; //0
@@ -298,14 +294,11 @@ typedef struct _BASE_CREATE_PROCESS_2016 {
     USHORT ProcessorArchitecture;
 } BASE_CREATEPROCESS_MSG_2016, * PBASE_CREATEPROCESS_MSG_2016;
 
-
 typedef struct  _BASE_CREATETHREAD_MSG
 {
     HANDLE hThread;
     CLIENT_ID ClientId;
 }BASE_CREATETHREAD_MSG, * PBASE_CREATETHREAD_MSG;
-
-
 
 typedef struct _BASE_CREATE_PROCESS {
     HANDLE ProcessHandle;//0
@@ -320,8 +313,6 @@ typedef struct _BASE_CREATE_PROCESS {
     ULONGLONG PebAddressWow64;//ULONG_PTR 58*9 确认
     USHORT ProcessorArchitecture;
 } BASE_CREATEPROCESS_MSG, * PBASE_CREATEPROCESS_MSG; //536
-
-
 //64+56=120
 typedef struct _BASE_API_MSG
 {
@@ -376,9 +367,6 @@ typedef struct _Sxs_CreateProcess_UtilityStruct_2008 {
     PRTL_UNICODE_STRING_BUFFER ReservedStringsBuffers;//Heap2;//464 
 }Sxs_CreateProcess_UtilityStruct_2008, * PSxs_CreateProcess_UtilityStruct_2008; //472
 
-
-//win server 2019| win 10 1809 [17763] -> 18个参数 
-//win 10 1909 [18383] -> 20 个参数？？？？
 typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage)( //18
     IN PUNICODE_STRING SxsNtExePath, //a1
     IN PUNICODE_STRING SxsWin32ExePath, //a2
@@ -396,11 +384,9 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage)( //18
     IN PVOID ManifestAddress,
     IN ULONG ManifestSize,
     IN OUT PULONG CurrentParameterFlags,//PVOID
-    IN OUT PVOID Message,//难点? OUT BASE_SXS_CREATEPROCESS_MSG Message PBASE_SXS_CREATEPROCESS_MSG
+    IN OUT PVOID Message,//
     IN PVOID SxsCreateProcessUtilityStruct
     ); // 大小 = 88 = 0x58 ? ? void*
-
-
 
 typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2016)( //18
     IN PUNICODE_STRING SxsNtExePath, //a1
@@ -421,7 +407,7 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2016)( //18
     IN PVOID ManifestAddress,
     IN ULONG ManifestSize,
     IN OUT PULONG CurrentParameterFlags,//PVOID
-    IN OUT PVOID Message,//难点? OUT BASE_SXS_CREATEPROCESS_MSG Message PBASE_SXS_CREATEPROCESS_MSG
+    IN OUT PVOID Message,//
     IN PVOID SxsCreateProcessUtilityStruct
     );
 
@@ -464,7 +450,7 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2008)( //18
     IN PVOID ManifestAddress,
     IN ULONG ManifestSize,
     IN OUT PULONG CurrentParameterFlags,//PVOID
-    IN OUT PVOID Message,//难点? OUT BASE_SXS_CREATEPROCESS_MSG Message PBASE_SXS_CREATEPROCESS_MSG
+    IN OUT PVOID Message,
     IN PVOID SxsCreateProcessUtilityStruct
     );
 typedef NTSTATUS(WINAPI* _CsrClientCallServer)(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  CaptureBuffer, ULONG ApiNumber, ULONG DataLength);

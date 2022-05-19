@@ -72,7 +72,6 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 		ApiMessage->ReturnValue = Status;
 	return ApiMessage->ReturnValue;
 }
-
 NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, UNICODE_STRING Win32Path, UNICODE_STRING NtPath, CLIENT_ID ClientId,USHORT DllCharacteristics)
 {
 	//ULONG NtMajorVersion = *(PULONG)(0x7FFE0000 + 0x26C);
@@ -104,7 +103,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	CSR_API_NUMBER CSRAPINumber = 0x10000;
 	ULONG DataLength = 0;
 	wprintf(L"OS: %d\n", OSBuildNumber);
-
 	if (OSBuildNumber >= 18985)//win 10 19041 [2004//20H1] ? 19000
 	{
 		wprintf(L"[*] Windows 10 2004+ | Windows Server 2022\n");
@@ -115,9 +113,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->ClientId = ClientId;
 		BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;//0x80040 ?? &0xFFFFFFFC
 		BaseCreateProcessMessage->VdmBinaryType = NULL;
-
-		
-		//BOOLEAN testflag = (CreateInfo.InitState.u1.InitFlags >> 2) & 1;
 		Status = BasepConstructSxsCreateProcessMessage_18(
 			&NtPath,
 			&Win32Path,
@@ -126,11 +121,11 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			CreateInfo.SuccessState.SectionHandle,
 			TokenHandle,
 			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,//0x4 
-			0,//Unknow_CompatCache
+			0,
 			0,//AppCompatSxsData
 			0,//AppCompatSxsDataSize
 			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,//DllCharacteristics
-			NULL,//AppXPath?
+			NULL,
 			(PPEB)CreateInfo.SuccessState.PebAddressNative,
 			(PVOID)CreateInfo.SuccessState.ManifestAddress,
 			CreateInfo.SuccessState.ManifestSize,
@@ -139,7 +134,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&SxsCreateProcessUtilityStruct
 		);
 		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -186,8 +180,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&SxsCreateProcessUtilityStruct
 		);
 		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-
-
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -201,7 +193,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	}
 	else if (OSBuildNumber >= 17763)//win server 2019 | win 10 1809
 	{
-		//Windows 10 1803 not tested yet
+
 		wprintf(L"[*] |  Windows 10 1803 | Windows 10 1809 | Windows Server 2019\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
 		BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2016;
@@ -222,7 +214,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			0,
 			0,
 			0,
-			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,//
+			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,
 			NULL,
 			(PPEB)CreateInfo.SuccessState.PebAddressNative,
 			(PVOID)CreateInfo.SuccessState.ManifestAddress,
@@ -245,7 +237,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		DataLength = sizeof(*BaseCreateProcessMessage);//264
 
 	}
-	else if (OSBuildNumber >= 10240)//win 10 10240 鍒皐in 10 17763 [1809] 杩樻病娴嬭瘯鍜岄�嗗悜,鍙紕浜嗕釜2016,鍏堣繖鏍峰惂
+	else if (OSBuildNumber >= 10240)//win 10 10240 到win 10 17763 [1809] 还没测试和逆向,只弄了个2016,先这样吧
 	{
 		wprintf(L"[*] Windows 10 10240-17763 ??? | Windows Server 2016\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
@@ -292,12 +284,15 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
 		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
 
-		DataLength = sizeof(*BaseCreateProcessMessage);//264		
+		DataLength = sizeof(*BaseCreateProcessMessage);//264
+
+		
 	}
 	else if (OSBuildNumber >= 8423)
 	{
 		//sizeof(BASE_SXS_CREATEPROCESS_MSG_2012);//->sxs = 192
 		//sizeof(BASE_CREATEPROCESS_MSG_2012);// createprocess total-> 272
+		
 		PBASE_CREATEPROCESS_MSG_2012 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2012;
 		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
 
@@ -373,6 +368,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//272 win server 2012
 	}
+
 	else if (OSBuildNumber >= 7600)
 	{
 		wprintf(L"Windows 7 | Windows Server 2008 | Windows Server 2008 R2\n");
@@ -419,6 +415,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&SxsCreateProcessUtilityStruct_2008 //472
 		);
 		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
+		
 		if (!NT_SUCCESS(Status) || BaseCreateProcessMessage->Sxs.Win32Path.Length <= 2)
 		{
 			wprintf(L"Error?\n");
