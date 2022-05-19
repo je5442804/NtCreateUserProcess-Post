@@ -1,18 +1,13 @@
 # NtCreateUserProcess-Post
 NtCreateUserProcess with CsrClientCallServer for mainstream Windows x64 version.  
 
-Reimplement this: NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->  
-->CsrCaptureMessageMultiUnicodeStringsInPlace->CsrClientCallServer
+Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->  
+->CsrCaptureMessageMultiUnicodeStringsInPlace->CsrClientCallServer__
 
 This project could be useless, however it's also useful to learn!  
 
 I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed :).  
 Maybe I will try to support all Windows x64 verison from win 7 to win 11.  
-
-# Example
-(1) NtCreateUserProcess-Post.exe (Default is C:\Program Files\Internet Explorer\iexplore.exe)  
-(2) NtCreateUserProcess-Post.exe C:\Windows\system32\notepad.exe  
-(3) NtCreateUserProcess-Post.exe "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"  
 
 ## Reverse Engineering
 After the release of https://github.com/D0pam1ne705/Direct-NtCreateUserProcess and article by D0pam1ne705,  
@@ -20,15 +15,30 @@ I think I should also share my the Reverse Engineering results of CreateProcessI
 Different from his reverse route, I didn't kernel debug ALPC and csrss.exe,  
 but mainly depends on IDA and memory analysis parameter.
 
+## Example
+ __NtCreateUserProcess-Post.exe  (ImagePath)__  
+(Default is C:\Windows\System32\dfrgui.exe without special ImagePath)  
+(1) NtCreateUserProcess-Post.exe  
+(2) NtCreateUserProcess-Post.exe C:\Windows\system32\notepad.exe  
+(3) NtCreateUserProcess-Post.exe C:\Windows\system32\DisplaySwitch.exe  
+(4) NtCreateUserProcess-Post.exe "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"   
+ and so on...  
+"C:\Program Files\Google\Chrome\Application\chrome.exe"  
+C:\Windows\system32\Magnify.exe  
+......
+
 ## My Build Environment
 Visual Studio 2022 (Visual Studio 2019 should work)  
 Relase x64
 
 ## BasepConstructSxsCreateProcessMessage??
-Well, if you think this one is complex and redundant, you can reffer D0pam1ne705 Project 
-and simplify the project code without BasepConstructSxsCreateProcessMessage.
+Well, if you think this one is complex and redundant, you can reffer D0pam1ne705 Project   
+and simplify the project code without BasepConstructSxsCreateProcessMessage.  
+
+Or try to develop a minimal version?  
 
 ## Tested on (Only x64):
+ Windows 11 21H2 x64 (22000.613)  Notice: On Windows 11 notepad.exe is AppX so it doesn't work  
  Windows 10 21H2 x64 (19044.1706)  
  Windows 10 21H1 x64 (19043.1023)  
  Windows 10 2004 x64 (19041.264)  
