@@ -7,7 +7,8 @@ Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->
 This project could be useless, however it's also useful to learn!  
 
 I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed :).  
-Maybe I will try to support all Windows x64 verison from win 7 to win 11.  
+Maybe I will try to support all Windows x64 verison from win 7 to win 11. 
+AppX isn't supported yet.
 
 ## Reverse Engineering
 After the release of https://github.com/D0pam1ne705/Direct-NtCreateUserProcess and article by D0pam1ne705,  
@@ -23,8 +24,9 @@ but mainly depends on IDA and memory analysis parameter.
 (3) NtCreateUserProcess-Post.exe C:\Windows\system32\DisplaySwitch.exe  
 (4) NtCreateUserProcess-Post.exe "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"   
  and so on...  
+ C:\Windows\System32\taskmgr.exe  
 "C:\Program Files\Google\Chrome\Application\chrome.exe"  
-C:\Windows\system32\Magnify.exe  
+ C:\Windows\system32\Magnify.exe  
 ......
 
 ## My Build Environment
@@ -37,22 +39,28 @@ and simplify the project code without BasepConstructSxsCreateProcessMessage.
 
 Or try to develop a minimal version?  
 
-## Tested on (Only x64):
- Windows 11 21H2 x64 (22000.613)  Notice: On Windows 11 notepad.exe is AppX so it doesn't work  
+## Tested on (Only x64):  
+ __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
+ Windows 11 21H2 x64 (22000.613)  
  Windows 10 21H2 x64 (19044.1706)  
  Windows 10 21H1 x64 (19043.1023)  
  Windows 10 2004 x64 (19041.264)  
  Windows 10 1909 x64 (18363.2274)  
  Windows Server 2019 x64 (17763.107)  
- Windows Server 2016 x64 (14393)  
+ Windows 10 1709 x64 (16299.125)  
+ Windows 10 1703 x64 (15063.2078)  
+ Windows Server 2016 x64 (14393.5066)  
+ Windows 10 1607 x64 (14393.447)  
+ Windows 10 1511 x64 (10586.164)  
+ Windows 10 1507 x64 (10240)  
  Windows Server 2012 R2 x64 (9600)  
  Windows Server 2012 x64 (9200)  
  Windows Server 2008 R2 x64 (7601)  
  Windows 7 SP1 x64 (7601)  
  Windows Server 2008 x64 (7600）  
+  
+ (Windows Vista isn't tested)  
  
-(win 10 10240->17763 not exactly tested, will be updated soon)  
-
 ## References && Credits
 
 1: https://github.com/Microwave89/createuserprocess  
