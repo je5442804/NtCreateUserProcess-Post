@@ -11,7 +11,7 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 	ApiMessage->h.u2.ZeroInit = 0;
 	ApiMessage->h.u1.Length = (DataLength | (DataLength << 16)) + (((sizeof(CSR_API_MSG) - sizeof(ApiMessage->u)) << 16) | (FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h)));// +0x400018
 	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CaptureBuffer + CsrPortMemoryRemoteDelta);
-	CaptureBuffer->FreeSpace = 0;//Mark the fact that we are done allocating space from the end of  the capture buffer.
+	CaptureBuffer->FreeSpace = 0;//Mark the fact that we are done allocating space from the end of the capture buffer.
 	ULONG_PTR Pointer = 0;
 	ULONG CountPointers = CaptureBuffer->CountMessagePointers;
 	PULONG_PTR PointerOffsets = CaptureBuffer->MessagePointerOffsets;
@@ -103,7 +103,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	CSR_API_NUMBER CSRAPINumber = 0x10000;
 	ULONG DataLength = 0;
 	wprintf(L"OS: %d\n", OSBuildNumber);
-	if (OSBuildNumber >= 18985)//win 10 19041 [2004//20H1] ? 19000
+	if (OSBuildNumber >= 18985)//19041 ? 19000
 	{
 		wprintf(L"[*] Windows 10 2004+ | Windows Server 2022\n");
 		PBASE_CREATEPROCESS_MSG BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess;
@@ -147,9 +147,8 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		DataLength = sizeof(*BaseCreateProcessMessage);//536 = 0x1c8
 			
 	}
-	else if (OSBuildNumber >= 18214)// win 10 1903 | win 10 1909
+	else if (OSBuildNumber >= 18214)//18362
 	{
-		//Windows 10 1903 not tested yet
 		wprintf(L"[*] Windows 10 1903 | Windows 10 1909\n");
 		PBASE_CREATEPROCESS_MSG_2012 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2012;//OMG
 		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
@@ -191,18 +190,20 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//536 = 0x1c8
 	}
-	else if (OSBuildNumber >= 17110)//win server 2019 | win 10 1809
+	else if (OSBuildNumber >= 15025)//15063
 	{
-
-		wprintf(L"[*] |  Windows 10 1803 | Windows 10 1809 | Windows Server 2019\n");
+		wprintf(L"[*] Windows 10 1803 | Windows 10 1809 | Windows Server 2019\n");
+		wprintf(L"[*] Windows 10 1703 | Windows 10 1709\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
 		BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2016;
 		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
+
 		BaseCreateProcessMessage->ProcessHandle = hProcess;
 		BaseCreateProcessMessage->ThreadHandle = hThread;
 		BaseCreateProcessMessage->ClientId = ClientId;
 		BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
 		BaseCreateProcessMessage->VdmBinaryType = NULL;
+
 		Status = BasepConstructSxsCreateProcessMessage_18(
 			&NtPath,
 			&Win32Path,
@@ -235,11 +236,10 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//264
-
 	}
-	else if (OSBuildNumber >= 10240)//win 10 10240 到win 10 17763 [1809] 还没测试和逆向,只弄了个2016,先这样吧
+	else if (OSBuildNumber >= 10041)//10240
 	{
-		wprintf(L"[*] Windows 10 10240-17763 ??? | Windows Server 2016\n");
+		wprintf(L"[*] Windows 10 1507 | Windows 10 1511 | Windows 10 1607 | Windows Server 2016\n");
 		PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage;
 		BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2016;
 		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
@@ -249,7 +249,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->ClientId = ClientId;
 		BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
 		BaseCreateProcessMessage->VdmBinaryType = NULL;
-		
+	
 		_BasepConstructSxsCreateProcessMessage_2016 BasepConstructSxsCreateProcessMessage_2016 = (_BasepConstructSxsCreateProcessMessage_2016)BasepConstructSxsCreateProcessMessage_18;
 		Status = BasepConstructSxsCreateProcessMessage_2016(
 			&NtPath,
@@ -285,10 +285,8 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//264
-
-		
 	}
-	else if (OSBuildNumber >= 8423)
+	else if (OSBuildNumber >= 8423)//9200
 	{
 		//sizeof(BASE_SXS_CREATEPROCESS_MSG_2012);//->sxs = 192
 		//sizeof(BASE_CREATEPROCESS_MSG_2012);// createprocess total-> 272
@@ -368,7 +366,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//272 win server 2012
 	}
-
 	else if (OSBuildNumber >= 7600)
 	{
 		wprintf(L"Windows 7 | Windows Server 2008 | Windows Server 2008 R2\n");
@@ -392,8 +389,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->ClientId = ClientId;
 		BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
 		BaseCreateProcessMessage->VdmBinaryType = NULL;
-		USHORT SxsCreateFlag = (CreateInfo.InitState.u1.InitFlags & 0x4) != 0;
-		USHORT NoIsolation = (DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0;
+
 		Status = BasepConstructSxsCreateProcessMessage_2008(
 			&NtPath,
 			&Win32Path,
@@ -429,7 +425,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
 		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
 		DataLength = sizeof(*BaseCreateProcessMessage);//272
-	
 	}
 	if (CsrStringsToCapture[0] != NULL)
 	{

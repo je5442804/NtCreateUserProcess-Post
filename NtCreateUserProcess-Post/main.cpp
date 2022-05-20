@@ -19,7 +19,7 @@ int wmain(int argc, wchar_t* argv[])
 	}
 	else
 	{
-		wprintf(L"[*] example: NtCreateUserProcess-Post.exe C:\\Windows\\system32\\notepad.exe\n[!] On Windows 11 Notepad.exe is AppX so it doesn't work.(AppX no supported yet)\n");
+		wprintf(L"[*] Example: NtCreateUserProcess-Post.exe C:\\Windows\\system32\\notepad.exe\n[!] On Windows 11 Notepad.exe is AppX so it doesn't work.(AppX no supported yet)\n");
 	}
 	SECTION_IMAGE_INFORMATION SectionImageInfomation = { 0 };
 	ULONG sizeReturn = 0;

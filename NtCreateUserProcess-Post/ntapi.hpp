@@ -17,8 +17,7 @@ typedef NTSTATUS(NTAPI* t_RtlCreateProcessParametersEx)(
 		_In_opt_ PUNICODE_STRING RuntimeData,
 		_In_ ULONG Flags
 		);
-typedef BOOLEAN(NTAPI* RtlDosPathNameToNtPathName_U_)(PCWSTR DosPathName, PUNICODE_STRING NtPathName, PCWSTR* NtFileNamePart, PVOID DirectoryInfo);
-//PRTL_RELATIVE_NAME_U
+
 EXTERN_C NTSTATUS NtAccessCheck(
 	IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
 	IN HANDLE ClientToken,
