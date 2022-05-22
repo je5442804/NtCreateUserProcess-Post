@@ -7,8 +7,9 @@ Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->
 This project could be useless, however it's also useful to learn!  
 
 I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed :).  
-Maybe I will try to support all Windows x64 verison from win 7 to win 11. 
-AppX isn't supported yet.
+__I will mainly try to support ALL Windows x64 verison from win 7 to win 11.__  
+__AppX isn't supported yet.__  
+__Developing Fully Native Edition...__  
 
 ## Reverse Engineering
 After the release of https://github.com/D0pam1ne705/Direct-NtCreateUserProcess and article by D0pam1ne705,  
@@ -20,13 +21,13 @@ but mainly depends on IDA and memory analysis parameter.
  __NtCreateUserProcess-Post.exe  (ImagePath)__  
 (Default is C:\Windows\System32\dfrgui.exe without special ImagePath)  
 (1) NtCreateUserProcess-Post.exe  
-(2) NtCreateUserProcess-Post.exe C:\Windows\system32\notepad.exe  
-(3) NtCreateUserProcess-Post.exe C:\Windows\system32\DisplaySwitch.exe  
+(2) NtCreateUserProcess-Post.exe C:\Windows\System32\notepad.exe  
+(3) NtCreateUserProcess-Post.exe C:\Windows\System32\taskmgr.exe  
 (4) NtCreateUserProcess-Post.exe "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"   
  and so on...  
- C:\Windows\System32\taskmgr.exe  
+ C:\Windows\System32\DisplaySwitch.exe  
 "C:\Program Files\Google\Chrome\Application\chrome.exe"  
- C:\Windows\system32\Magnify.exe  
+ C:\Windows\System32\Magnify.exe  
 ......
 
 ## My Build Environment
@@ -38,6 +39,7 @@ Well, if you think this one is complex and redundant, you can reffer D0pam1ne705
 and simplify the project code without BasepConstructSxsCreateProcessMessage.  
 
 Or try to develop a minimal version?  
+__Developing Fully Native Edition,which should be  smaller...__  
 
 ## Tested on (Only x64):  
  __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
@@ -57,9 +59,11 @@ Or try to develop a minimal version?
  Windows Server 2012 x64 (9200)  
  Windows Server 2008 R2 x64 (7601)  
  Windows 7 SP1 x64 (7601)  
- Windows Server 2008 x64 (7600）  
-  
- (Windows Vista isn't tested)  
+ Windows Server 2008 R2 x64 (7600）  
+ Windows Server 2008 x64 (6002）  
+ Windows Vista SP2 x64 (6002)  
+ Windows Vista x64 (6000)  
+
  
 ## References && Credits
 
