@@ -142,6 +142,7 @@ typedef struct _SXS_WIN32_NT_PATH_PAIR
 typedef       SXS_WIN32_NT_PATH_PAIR* PSXS_WIN32_NT_PATH_PAIR;
 typedef CONST SXS_WIN32_NT_PATH_PAIR* PCSXS_WIN32_NT_PATH_PAIR;
 
+
 typedef struct _BASE_MSG_SXS_STREAM {
     IN BYTE          FileType;//0
     IN BYTE          PathType;//1
@@ -157,6 +158,7 @@ typedef struct _BASE_MSG_SXS_STREAM {
     IN SIZE_T         Size; //48 OK
 } BASE_MSG_SXS_STREAM, * PBASE_MSG_SXS_STREAM;
 typedef const BASE_MSG_SXS_STREAM* PCBASE_MSG_SXS_STREAM;
+
 
 typedef struct _SXS_OVERRIDE_STREAM {
     UNICODE_STRING Name;
@@ -306,9 +308,9 @@ typedef struct _BASE_CREATE_PROCESS {
     ULONG VdmBinaryType;//36
     ULONG VdmTask;//40
     HANDLE hVDM;//48
-    NEW_BASE_SXS_CREATEPROCESS_MSG Sxs;  // 56 Notice how this is one less on windows 10. Undocumented magic lol (24 on Win7)
-    ULONGLONG PebAddressNative; //57*8= 456了，说明有对齐原因造成的 确认
-    ULONGLONG PebAddressWow64;//ULONG_PTR 58*9 确认
+    NEW_BASE_SXS_CREATEPROCESS_MSG Sxs;  
+    ULONGLONG PebAddressNative; 
+    ULONGLONG PebAddressWow64;//
     USHORT ProcessorArchitecture;
 } BASE_CREATEPROCESS_MSG, * PBASE_CREATEPROCESS_MSG; //536
 //64+56=120
@@ -372,7 +374,7 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage)( //18
     IN HANDLE ProcessHandle,//a4
     IN HANDLE SectionHandle,//a5
     IN HANDLE TokenHandle,//a6
-    IN ULONG SxsCreateFlag,//BOOLEAN?
+    IN ULONG SxsCreateFlag,//BOOLEAN
     IN PVOID Unknow_CompatCache1,
     IN PVOID AppCompatSxsData,
     IN ULONG AppCompatSxsDataSize,
@@ -386,22 +388,22 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage)( //18
     IN PVOID SxsCreateProcessUtilityStruct
     ); // 大小 = 88 = 0x58 ? ? void*
 
-typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2016)(
-    IN PUNICODE_STRING SxsNtExePath, 
-    IN PUNICODE_STRING SxsWin32ExePath, 
-    IN HANDLE FileHandle,
-    IN HANDLE ProcessHandle,
-    IN HANDLE SectionHandle,
-    IN HANDLE TokenHandle,
+typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2016)( //18
+    IN PUNICODE_STRING SxsNtExePath, //a1
+    IN PUNICODE_STRING SxsWin32ExePath, //a2
+    IN HANDLE FileHandle,//a3
+    IN HANDLE ProcessHandle,//a4
+    IN HANDLE SectionHandle,//a5
+    IN HANDLE TokenHandle,//a6
     IN ULONG AlreadyCheckIsRemovable,
     IN ULONG IsRemovableMedia,
-    IN ULONG SxsCreateFlag,
+    IN ULONG SxsCreateFlag,//a7 (CreateInfo.InitState.u1.InitFlags & 4) != 0;
     IN PVOID Unknow_CompatCache1,
     IN PVOID AppCompatSxsData,
     IN PVOID AppCompatSxsDataSize,
-    IN ULONG NoIsolation, 
-    IN PVOID AppXPath, 
-    IN PPEB PebAddress,
+    IN ULONG NoIsolation, // (SectionImageInfomation.DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) & 1 = 0
+    IN PVOID AppXPath, //PWSTR | PUNICODE_STRING
+    IN PPEB PebAddress,//(PPEB) PVOID ULONGLONG
     IN PVOID ManifestAddress,
     IN ULONG ManifestSize,
     IN OUT PULONG CurrentParameterFlags,//PVOID
@@ -410,23 +412,23 @@ typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2016)(
     );
 
 typedef NTSTATUS(WINAPI* _BasepConstructSxsCreateProcessMessage_2012_old)( //old is 19
-    IN PUNICODE_STRING SxsNtExePath,
-    IN PUNICODE_STRING SxsWin32ExePath,
-    IN HANDLE FileHandle,
-    IN HANDLE ProcessHandle,
-    IN HANDLE SectionHandle,
+    IN PUNICODE_STRING SxsNtExePath, //a1
+    IN PUNICODE_STRING SxsWin32ExePath, //a2
+    IN HANDLE FileHandle,//a3
+    IN HANDLE ProcessHandle,//a4
+    IN HANDLE SectionHandle,//a5
     IN ULONG AlreadyCheckIsRemovable,
     IN ULONG IsRemovableMedia,
-    IN ULONG SxsCreateFlag,
+    IN ULONG SxsCreateFlag,//a8 (CreateInfo.InitState.u1.InitFlags & 4) != 0;
     IN PVOID UnknowAppHelp,
     IN PVOID AppCompatSxsData,
     IN PVOID AppCompatSxsDataSize,
-    IN ULONG NoIsolation,
-    IN PVOID AppXPath, 
-    IN PPEB PebAddress,
+    IN ULONG NoIsolation, // (SectionImageInfomation.DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) & 1 = 0
+    IN PVOID AppXPath, //PWSTR | PUNICODE_STRING
+    IN PPEB PebAddress,//(PPEB) PVOID ULONGLONG
     IN PVOID ManifestAddress,
     IN ULONG ManifestSize,
-    IN OUT PULONG CurrentParameterFlags,
+    IN OUT PULONG CurrentParameterFlags,//PVOID
     IN OUT PVOID Message,
     IN PVOID SxsCreateProcessUtilityStruct
     );

@@ -85,7 +85,9 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	CsrCaptureMessageMultiUnicodeStringsInPlace_t CsrCaptureMessageMultiUnicodeStringsInPlace = (CsrCaptureMessageMultiUnicodeStringsInPlace_t)GetProcAddress(ntdll, "CsrCaptureMessageMultiUnicodeStringsInPlace");
 	_BasepConstructSxsCreateProcessMessage BasepConstructSxsCreateProcessMessage_18 = (_BasepConstructSxsCreateProcessMessage)GetProcAddress(kernel32, "BasepConstructSxsCreateProcessMessage");
 	_CsrClientCallServer CsrClientCallServer_ntdll = (_CsrClientCallServer)GetProcAddress(ntdll, "CsrClientCallServer");
-
+	if (BasepConstructSxsCreateProcessMessage_2008_Address)
+		BasepConstructSxsCreateProcessMessage_18 = (_BasepConstructSxsCreateProcessMessage)BasepConstructSxsCreateProcessMessage_2008_Address;
+	wprintf(L"============================================================================================\n");
 	wprintf(L"[*] kernel32!BasepConstructSxsCreateProcessMessage address: %p\n", BasepConstructSxsCreateProcessMessage_18);
 	wprintf(L"[*] ntdll!CsrCaptureMessageMultiUnicodeStringsInPlace address: %p\n", CsrCaptureMessageMultiUnicodeStringsInPlace);
 	wprintf(L"[*] ntdll!CsrClientCallServer_ntdll address: %p\n", CsrClientCallServer_ntdll);
@@ -133,7 +135,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&BaseCreateProcessMessage->Sxs,
 			&SxsCreateProcessUtilityStruct
 		);
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -178,7 +179,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&BaseCreateProcessMessage->Sxs,
 			&SxsCreateProcessUtilityStruct
 		);
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -224,8 +224,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&BaseCreateProcessMessage->Sxs,
 			&SxsCreateProcessUtilityStruct
 		);
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -273,8 +271,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 			&BaseCreateProcessMessage->Sxs,
 			&SxsCreateProcessUtilityStruct
 		);
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-		
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -354,7 +350,6 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 				&SxsCreateProcessUtilityStruct
 			);
 		}
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
 		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
@@ -366,73 +361,110 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 
 		DataLength = sizeof(*BaseCreateProcessMessage);//272 win server 2012
 	}
-	else if (OSBuildNumber >= 7600)
+	else if (OSBuildNumber >= 6000)
 	{
-		wprintf(L"Windows 7 | Windows Server 2008 | Windows Server 2008 R2\n");
-		_BasepConstructSxsCreateProcessMessage_2008 BasepConstructSxsCreateProcessMessage_2008 = 0;
-		if (BasepConstructSxsCreateProcessMessage_18 == 0)
+		_BasepConstructSxsCreateProcessMessage_2008 BasepConstructSxsCreateProcessMessage_2008 = (_BasepConstructSxsCreateProcessMessage_2008)BasepConstructSxsCreateProcessMessage_18;
+		Sxs_CreateProcess_UtilityStruct_2008 SxsCreateProcessUtilityStruct_2008 = { 0 };
+		RtlSecureZeroMemory(&SxsCreateProcessUtilityStruct_2008, sizeof(SxsCreateProcessUtilityStruct_2008));
+		if (OSBuildNumber >= 7600)
 		{
-			wprintf(L"[*] Try wuth FoundStub value: 0x%p\n", BasepConstructSxsCreateProcessMessage_2008_Address);
-			BasepConstructSxsCreateProcessMessage_2008 = (_BasepConstructSxsCreateProcessMessage_2008)BasepConstructSxsCreateProcessMessage_2008_Address;
+			wprintf(L"[*] Windows 7 | Windows Server 2008 | Windows Server 2008 R2\n");
+			PBASE_CREATEPROCESS_MSG_2012 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2012;
+			RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
+			BaseCreateProcessMessage->ProcessHandle = hProcess;
+			BaseCreateProcessMessage->ThreadHandle = hThread;
+			BaseCreateProcessMessage->ClientId = ClientId;
+			BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
+			BaseCreateProcessMessage->VdmBinaryType = NULL;
+			Status = BasepConstructSxsCreateProcessMessage_2008(
+				&NtPath,
+				&Win32Path,
+				CreateInfo.SuccessState.FileHandle,
+				hProcess,
+				CreateInfo.SuccessState.SectionHandle,
+				FALSE,//AlreadyCheck
+				FALSE,//IsRemovableMedia
+				(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
+				0,
+				0,
+				0,
+				(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,   //No AppX
+				(PPEB)CreateInfo.SuccessState.PebAddressNative,
+				(PVOID)CreateInfo.SuccessState.ManifestAddress,
+				CreateInfo.SuccessState.ManifestSize,
+				&CreateInfo.SuccessState.CurrentParameterFlags,
+				&BaseCreateProcessMessage->Sxs,//192 
+				&SxsCreateProcessUtilityStruct_2008 //472
+			);
+			if (!NT_SUCCESS(Status) || BaseCreateProcessMessage->Sxs.Win32Path.Length <= 2)
+			{
+				wprintf(L"Error?\n");
+			}
+			BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
+			BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
+			BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
+
+			CsrStringsToCapture[0] = &BaseCreateProcessMessage->Sxs.Win32Path;
+			CsrStringsToCapture[1] = &BaseCreateProcessMessage->Sxs.NtPath;
+			CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
+			CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
+			DataLength = sizeof(*BaseCreateProcessMessage);//272
 		}
 		else
 		{
-			BasepConstructSxsCreateProcessMessage_2008 = (_BasepConstructSxsCreateProcessMessage_2008)BasepConstructSxsCreateProcessMessage_18;
+			wprintf(L"[*] Windows Vista (6000-6002)| Windows Server 2008 (6002-6003)\n");
+			PBASE_CREATEPROCESS_MSG_2016 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2016;
+			RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
+			BaseCreateProcessMessage->ProcessHandle = hProcess;
+			BaseCreateProcessMessage->ThreadHandle = hThread;
+			BaseCreateProcessMessage->ClientId = ClientId;
+			BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
+			BaseCreateProcessMessage->VdmBinaryType = NULL;
+	
+			Status = BasepConstructSxsCreateProcessMessage_2008(
+				&NtPath,
+				&Win32Path,
+				CreateInfo.SuccessState.FileHandle,
+				hProcess,
+				CreateInfo.SuccessState.SectionHandle,
+				FALSE,//AlreadyCheck
+				FALSE,//IsRemovableMedia
+				(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
+				0,
+				0,
+				0,
+				(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,   //No AppX
+				(PPEB)CreateInfo.SuccessState.PebAddressNative,
+				(PVOID)CreateInfo.SuccessState.ManifestAddress,
+				CreateInfo.SuccessState.ManifestSize,
+				&CreateInfo.SuccessState.CurrentParameterFlags,
+				&BaseCreateProcessMessage->Sxs,//184 old vista
+				&SxsCreateProcessUtilityStruct_2008 //472
+			);
+			BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
+			BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
+			BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
+
+			CsrStringsToCapture[0] = &BaseCreateProcessMessage->Sxs.Win32Path;
+			CsrStringsToCapture[1] = &BaseCreateProcessMessage->Sxs.NtPath;
+			CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
+			CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
+			DataLength = sizeof(*BaseCreateProcessMessage);//264
 		}
-		Sxs_CreateProcess_UtilityStruct_2008 SxsCreateProcessUtilityStruct_2008 = { 0 };
-		RtlSecureZeroMemory(&SxsCreateProcessUtilityStruct_2008, sizeof(SxsCreateProcessUtilityStruct_2008));
-		PBASE_CREATEPROCESS_MSG_2012 BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess_2012;
-		RtlSecureZeroMemory(&BaseCreateProcessMessage->Sxs, sizeof(BaseCreateProcessMessage->Sxs));
-
-		BaseCreateProcessMessage->ProcessHandle = hProcess;
-		BaseCreateProcessMessage->ThreadHandle = hThread;
-		BaseCreateProcessMessage->ClientId = ClientId;
-		BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;
-		BaseCreateProcessMessage->VdmBinaryType = NULL;
-
-		Status = BasepConstructSxsCreateProcessMessage_2008(
-			&NtPath,
-			&Win32Path,
-			CreateInfo.SuccessState.FileHandle,
-			hProcess,
-			CreateInfo.SuccessState.SectionHandle,
-			FALSE,//AlreadyCheck
-			FALSE,//IsRemovableMedia
-			(CreateInfo.InitState.u1.InitFlags & 0x4) != 0,
-			0,
-			0,
-			0,
-			(DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NO_ISOLATION) != 0,   //No AppX
-			(PPEB)CreateInfo.SuccessState.PebAddressNative,
-			(PVOID)CreateInfo.SuccessState.ManifestAddress,
-			CreateInfo.SuccessState.ManifestSize,
-			&CreateInfo.SuccessState.CurrentParameterFlags,
-			&BaseCreateProcessMessage->Sxs,
-			&SxsCreateProcessUtilityStruct_2008 //472
-		);
-		wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
-		
-		if (!NT_SUCCESS(Status) || BaseCreateProcessMessage->Sxs.Win32Path.Length <= 2)
-		{
-			wprintf(L"Error?\n");
-		}
-		BaseCreateProcessMessage->PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
-		BaseCreateProcessMessage->PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
-		BaseCreateProcessMessage->ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
-
-		CsrStringsToCapture[0] = &BaseCreateProcessMessage->Sxs.Win32Path;
-		CsrStringsToCapture[1] = &BaseCreateProcessMessage->Sxs.NtPath;
-		CsrStringsToCapture[2] = &BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer;
-		CsrStringsToCapture[3] = &BaseCreateProcessMessage->Sxs.AssemblyIdentity;
-		DataLength = sizeof(*BaseCreateProcessMessage);//272
 	}
+	else
+	{
+		return 0xC00000BB;//STATUS_NOT_SUPPORTED
+	}
+	wprintf(L"[+] BasepConstructSxsCreateProcessMessage: 0x%08x\n", Status);
+	if (!NT_SUCCESS(Status))
+		return Status;
 	if (CsrStringsToCapture[0] != NULL)
 	{
 		wprintf(L"BaseCreateProcessMessage->Sxs.Win32Path: %ls\n", CsrStringsToCapture[0]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.NtPath: %ls\n", CsrStringsToCapture[1]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer: %ls\n", CsrStringsToCapture[2]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.AssemblyIdentity: %ls\n", CsrStringsToCapture[3]->Buffer);
-
 		wprintf(L"[+] CsrCaptureMessageMultiUnicodeStringsInPlace: 0x%08x\n", CsrCaptureMessageMultiUnicodeStringsInPlace(&CaptureBuffer, 4, CsrStringsToCapture));
 		if (CsrPortHandle && CsrPortMemoryRemoteDelta)
 		{
@@ -451,4 +483,5 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	}
 	return Status;
 }
+//CREATE_SECURE_PROCESS
 

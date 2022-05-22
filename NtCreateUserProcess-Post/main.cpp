@@ -20,7 +20,9 @@ int wmain(int argc, wchar_t* argv[])
 	else
 	{
 		wprintf(L"[*] Example: NtCreateUserProcess-Post.exe C:\\Windows\\system32\\notepad.exe\n[!] On Windows 11 Notepad.exe is AppX so it doesn't work.(AppX no supported yet)\n");
+		return -1;
 	}
+	NTSTATUS Status = 0;
 	SECTION_IMAGE_INFORMATION SectionImageInfomation = { 0 };
 	ULONG sizeReturn = 0;
 	HANDLE ParentProcessHandle = NULL;
@@ -29,12 +31,14 @@ int wmain(int argc, wchar_t* argv[])
 	CLIENT_ID clientId = { 0 };
 	CLIENT_ID ClientId = { 0 };
 	HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
-	
 	t_RtlCreateProcessParametersEx RtlCreateProcessParametersEx = (t_RtlCreateProcessParametersEx)GetProcAddress(ntdll, "RtlCreateProcessParametersEx");
 	clientId.UniqueProcess = UlongToHandle(GetCurrentProcessId());
 	clientId.UniqueThread = (HANDLE)0;
 	
-	wprintf(L"[*] NtOpenProcess: 0x%08x\n", NtOpenProcess(&ParentProcessHandle, PROCESS_ALL_ACCESS, &objectAttributes, &clientId));
+	Status = NtOpenProcess(&ParentProcessHandle, PROCESS_ALL_ACCESS, &objectAttributes, &clientId);
+	wprintf(L"[*] NtOpenProcess: 0x%08x\n", Status);
+	if (!NT_SUCCESS(Status))
+		return Status;
 	wprintf(L"[+] Parent process handle: %p\n", ParentProcessHandle);
 
 	PROCESS_BASIC_INFORMATION mesInfos = { 0 };
@@ -99,7 +103,7 @@ int wmain(int argc, wchar_t* argv[])
 		wprintf(L"[-] RtlCreateProcessParametersEx = 0x%08x\n", RtlCreateProcessParametersEx);
 		exit(-1);
 	}
-	NTSTATUS Status = RtlCreateProcessParametersEx(&ProcessParameters,
+	Status = RtlCreateProcessParametersEx(&ProcessParameters,
 		&Win32Path,
 		NULL,                        // Create a new DLL path
 		&OwnParameters->CurrentDirectory.DosPath,
@@ -110,7 +114,9 @@ int wmain(int argc, wchar_t* argv[])
 		NULL,
 		NULL,
 		RTL_USER_PROCESS_PARAMETERS_NORMALIZED);
-	//wprintf(L"RtlCreateProcessParametersEx: %d\nProcessParameters Length: %d\n", Status, ProcessParameters->Length);
+	wprintf(L"[*] RtlCreateProcessParametersEx: 0x%08x\n", Status);
+	if (!NT_SUCCESS(Status))
+		return Status;
 	ULONG AttributeListCount = 4;
 	SIZE_T TotalLength = AttributeListCount * sizeof(PS_ATTRIBUTE) + sizeof(SIZE_T);
 	PS_ATTRIBUTE_LIST AttributeList;
@@ -135,7 +141,10 @@ int wmain(int argc, wchar_t* argv[])
 
 	HANDLE hProcess = NULL;
 	HANDLE hThread = NULL;
-	wprintf(L"[*] NtCreateUserProcess: 0x%08x\n", NtCreateUserProcess(&hProcess, &hThread, MAXIMUM_ALLOWED, MAXIMUM_ALLOWED, NULL, NULL, 0, 1, ProcessParameters, &CreateInfo, &AttributeList));
+	Status = NtCreateUserProcess(&hProcess, &hThread, MAXIMUM_ALLOWED, MAXIMUM_ALLOWED, NULL, NULL, 0, 1, ProcessParameters, &CreateInfo, &AttributeList);
+	wprintf(L"[*] NtCreateUserProcess: 0x%08x\n", Status);
+	if (!NT_SUCCESS(Status))
+		return Status;
 	PEB peb2 = { 0 };
 	ActivationContextData = { 0 };
 #ifdef OUTPUT

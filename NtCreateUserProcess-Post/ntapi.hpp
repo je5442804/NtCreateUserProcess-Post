@@ -3,7 +3,6 @@
 #define NtCurrentPeb() (NtCurrentTeb()->ProcessEnvironmentBlock)
 #define NtCurrentProcess()	   ((HANDLE)-1)
 
-typedef VOID(NTAPI* _RtlInitUnicodeString)(PUNICODE_STRING DestinationString, PCWSTR SourceString);
 typedef NTSTATUS(NTAPI* t_RtlCreateProcessParametersEx)(
 		_Out_ PRTL_USER_PROCESS_PARAMETERS* pProcessParameters,
 		_In_ PUNICODE_STRING ImagePathName,
@@ -17,7 +16,6 @@ typedef NTSTATUS(NTAPI* t_RtlCreateProcessParametersEx)(
 		_In_opt_ PUNICODE_STRING RuntimeData,
 		_In_ ULONG Flags
 		);
-
 EXTERN_C NTSTATUS NtAccessCheck(
 	IN PSECURITY_DESCRIPTOR pSecurityDescriptor,
 	IN HANDLE ClientToken,

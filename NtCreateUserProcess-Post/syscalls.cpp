@@ -135,16 +135,27 @@ int GetCsrPortHandle(PVOID DllBase, DWORD SizeOfNtdll)
 }
 void GetBasepConstructSxsCreateProcessMessage(PVOID DllBase, DWORD SizeofKernel32)
 {
-    BYTE signaturecode[] = { 0x4c,0x89,0x4c,0x24,0x20,0x48,0x89,0x4c,0x24,0x08,0x53,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41 };//0x75 0x07, 0xeb, 0x0a
-    for (int i = 0; i < SizeofKernel32; i+=16)
+    //BYTE signaturecode[] = { 0x4c,0x89,0x4c,0x24,0x20,0x48,0x89,0x4c,0x24,0x08,0x53,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41 };
+    BYTE signaturecode[] = { 0x08,0x53,0x55,0x56,0x57,0x41,0x54,0x41 };
+    //BYTE signaturecode2[] = { 0x4c,0x89,0x48,0x89 };
+    BYTE signaturecode2[] = { 0x20,0x48,0x89 };
+    //BYTE signaturecode2[] = { 0x41,0x57,0x48,0x81,0xec };
+    for (int i = 0; i < SizeofKernel32 - 24 && BasepConstructSxsCreateProcessMessage_2008_Address == 0; i+=1)
     {
         if (!memcmp(signaturecode, (char*)DllBase + i, sizeof(signaturecode)))
         {
-            BasepConstructSxsCreateProcessMessage_2008_Address = (char*)DllBase + i;
-            wprintf(L"[+] Got Unexported BasepConstructSxsCreateProcessMessage: 0x%p\n", BasepConstructSxsCreateProcessMessage_2008_Address);
-            break;
+            //wprintf(L"Address = 0x%p\n", (char*)DllBase + i);
+            for (int j = 0; j < 6; j++)
+            {
+                if (!memcmp(signaturecode2, (char*)DllBase + i - j, 3))
+                {
+                    //wprintf(L"Final Address2 = 0x%p\n", (char*)DllBase + i);
+                    BasepConstructSxsCreateProcessMessage_2008_Address = (char*)DllBase + i - ((int)((char*)DllBase + i)%16);
+                    wprintf(L"[+] Got Unexported BasepConstructSxsCreateProcessMessage: 0x%p\n", BasepConstructSxsCreateProcessMessage_2008_Address);
+                    break;
+                }
+            }
         }
-
     }
 }
 BOOL SW3_PopulateSyscallList()
