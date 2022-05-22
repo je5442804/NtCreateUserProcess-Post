@@ -2,14 +2,15 @@
 NtCreateUserProcess with CsrClientCallServer for mainstream Windows x64 version.  
 
 Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->  
-->CsrCaptureMessageMultiUnicodeStringsInPlace->CsrClientCallServer__
+->CsrCaptureMessageMultiUnicodeStringsInPlace->CsrClientCallServer__  
 
-This project could be useless, however it's also useful to learn!  
+__This project could be useless, however it's also useful to learn!__  
 
 I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed :).  
 __I will mainly try to support ALL Windows x64 verison from win 7 to win 11.__  
 __AppX isn't supported yet.__  
-__Developing Fully Native Edition...__  
+__Developing Full Native Edition...__  
+__Native Edition will remove BasepConstructSxsCreateProcessMessage, RtlCreateProcessParametersEx...__  
 
 ## Reverse Engineering
 After the release of https://github.com/D0pam1ne705/Direct-NtCreateUserProcess and article by D0pam1ne705,  
@@ -39,7 +40,7 @@ Well, if you think this one is complex and redundant, you can reffer D0pam1ne705
 and simplify the project code without BasepConstructSxsCreateProcessMessage.  
 
 Or try to develop a minimal version?  
-__Developing Fully Native Edition,which should be  smaller...__  
+__Developing Full Native Edition,which should be smaller...__  
 
 ## Tested on (Only x64):  
  __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
