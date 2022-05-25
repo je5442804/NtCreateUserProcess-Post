@@ -6,14 +6,16 @@ Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->
 
 __This project could be useless, however it's also useful to learn!__  
 
-I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed :).  
+I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed __:)__  
 __I will mainly try to support ALL Windows x64 verison from win 7 to win 11.__  
 __AppX isn't supported yet.__  
-__Developing Full Native Edition...__  
-__Native Edition will remove BasepConstructSxsCreateProcessMessage, RtlCreateProcessParametersEx...__  
+
+NtCreateUserProcess-Native is the Native Edition which remove  
+BasepConstructSxsCreateProcessMessage, RtlCreateProcessParametersEx, CsrCaptureMessageMultiUnicodeStringsInPlace
+...  that will execute into ntdll.dll to prevent hook?  
 
 ## Reverse Engineering
-After the release of https://github.com/D0pam1ne705/Direct-NtCreateUserProcess and article by D0pam1ne705,  
+After the release of [Direct-NtCreateUserProcess](https://github.com/D0pam1ne705/Direct-NtCreateUserProcess) and article by D0pam1ne705,  
 I think I should also share my the Reverse Engineering results of CreateProcessInternalW (there's no need to keep it private).  
 Different from his reverse route, I didn't kernel debug ALPC and csrss.exe,  
 but mainly depends on IDA and memory analysis parameter.
@@ -31,18 +33,19 @@ but mainly depends on IDA and memory analysis parameter.
  C:\Windows\System32\Magnify.exe  
 ......
 
+(Same as NtCreateUserProcess-Native)  
+
 ## My Build Environment
 Visual Studio 2022 (Visual Studio 2019 should work)  
-Relase x64
+__Relase x64__
 
 ## BasepConstructSxsCreateProcessMessage??
 Well, if you think this one is complex and redundant, you can reffer D0pam1ne705 Project   
 and simplify the project code without BasepConstructSxsCreateProcessMessage.  
 
-Or try to develop a minimal version?  
-__Developing Full Native Edition,which should be smaller...__  
+Or just use the Native Edition [__NtCreateUserProcess-Native__  ](https://github.com/je5442804/NtCreateUserProcess-Post/tree/main/NtCreateUserProcess-Native)  
 
-## Tested on (Only x64):  
+## Tested on (x64 Only):  
  __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
  Windows 11 21H2 x64 (22000.613)  
  Windows 10 21H2 x64 (19044.1706)  
