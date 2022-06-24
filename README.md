@@ -1,18 +1,25 @@
-# NtCreateUserProcess-Post
+# NtCreateUserProcess-Post && NtCreateUserProcess-Native
 NtCreateUserProcess with CsrClientCallServer for mainstream Windows x64 version.  
 
 Reimplement this: __NtCreateUserProcess->BasepConstructSxsCreateProcessMessage->  
 ->CsrCaptureMessageMultiUnicodeStringsInPlace->CsrClientCallServer__  
 
 __This project could be useless, however it's also useful to learn!__  
-
+  
 I'll try to fix some known bugs, Any questions,suggestions and pulls are welcomed __:)__  
 __I will mainly try to support ALL Windows x64 verison from win 7 to win 11.__  
-__AppX isn't supported yet.__  
 
-NtCreateUserProcess-Native is the Native Edition which remove  
-BasepConstructSxsCreateProcessMessage, RtlCreateProcessParametersEx, CsrCaptureMessageMultiUnicodeStringsInPlace
-...  that will execute into ntdll.dll to prevent hook?  
+NtCreateUserProcess-Native support Standard IO Redirect.  
+NtCreateUserProcess-Native is the Native Edition which remove BasepConstructSxsCreateProcessMessage, RtlCreateProcessParametersEx,   CsrCaptureMessageMultiUnicodeStringsInPlace...  just prevent any function hook?  
+
+NtCreateUserProcess-Native is created for OPSEC, RedTeam purpose.  
+__I have enabled CFG in NtCreateUserProcess-Native Project Settings.__  
+
+__There is no plan to support AppX Package in this project.__  
+__I have nearly finished Reverse Engineering of CreateProcessInternalW of Windows 21H*,__  
+__but a few improvement,struct, data type... required, I need more time...__  
+Hope the later CreateProcessInternalW project will help you gain different knowledge and understanding,  
+which reimplement to support AppX, 16 bit RaiseError, .bat && .cmd File.   
 
 ## Reverse Engineering
 After the release of [Direct-NtCreateUserProcess](https://github.com/D0pam1ne705/Direct-NtCreateUserProcess) and article by D0pam1ne705,  
@@ -22,6 +29,7 @@ but mainly depends on IDA and memory analysis parameter.
 
 ## Example
  __NtCreateUserProcess-Post.exe  (ImagePath)__  
+ (NtCreateUserProcess-Post Temporarily Deprecated??? I'm lazy...ovO)  
 (Default is C:\Windows\System32\dfrgui.exe without special ImagePath)  
 (1) NtCreateUserProcess-Post.exe  
 (2) NtCreateUserProcess-Post.exe C:\Windows\System32\notepad.exe  
@@ -33,17 +41,27 @@ but mainly depends on IDA and memory analysis parameter.
  C:\Windows\System32\Magnify.exe  
 ......
 
-(Same as NtCreateUserProcess-Native)  
+__NtCreateUserProcess-Native.exe &nbsp; &nbsp;(-c ImagePath) &nbsp; &nbsp;(-i InteractType)__  
+__(Standard File IO redirect is already supportd in NtCreateUserProcess-Native!)__  
+
+-i 0: (Default) None of any interact mode will be used, like CREATE_NEW_CONSOLE  
+-i 1: StdHandle via AttributeList, like bInheritHandles = FALSE  
+-i 2: Set ProcessParameters Std Input,Output,OutError with CurrentProcessParameters Value, like bInheritHandles = TRUE  
+
+(Default is C:\Windows\System32\dfrgui.exe without special Argument)  
+(1) NtCreateUserProcess-Native.exe  
+(2) NtCreateUserProcess-Native.exe -c C:\Windows\system32\cmd.exe -i 1  
+(3) NtCreateUserProcess-Native.exe -c "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -i 2  
+(4) NtCreateUserProcess-Native.exe -c "C:\Program Files\Google\Chrome\Application\chrome.exe" -i 0  
+......
 
 ## My Build Environment
 Visual Studio 2022 (Visual Studio 2019 should work)  
 __Relase x64__
 
-## BasepConstructSxsCreateProcessMessage??
-Well, if you think this one is complex and redundant, you can reffer D0pam1ne705 Project   
-and simplify the project code without BasepConstructSxsCreateProcessMessage.  
-
-Or just use the Native Edition [__NtCreateUserProcess-Native__  ](https://github.com/je5442804/NtCreateUserProcess-Post/tree/main/NtCreateUserProcess-Native)  
+## BasepConstructSxsCreateProcessMessage???
+Well, if you think this one is complex and redundant,
+Try the Native Edition [__NtCreateUserProcess-Native__](https://github.com/je5442804/NtCreateUserProcess-Post/tree/main/NtCreateUserProcess-Native)  
 
 ## Tested on (x64 Only):  
  __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
