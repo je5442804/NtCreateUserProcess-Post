@@ -1,10 +1,13 @@
-#pragma once
+ï»¿#pragma once
 
 #ifndef SW3_HEADER_H_
 #define SW3_HEADER_H_
 
 #include <windows.h>
 
+#define ALIGN(x,align)      (((ULONG)(x)+(align)-1UL)&(~((align)-1UL)))
+#define KI_USER_SHARED_DATA 0x7FFE0000
+#define SharedUserData  ((KUSER_SHARED_DATA * const) KI_USER_SHARED_DATA)
 
 #define SW3_SEED 0x61EA92A9
 #define SW3_ROL8(v) (v << 8 | v >> 24)
@@ -19,125 +22,38 @@
 #define HANDLE_CREATE_NEW_CONSOLE   ((HANDLE)-2)
 #define HANDLE_CREATE_NO_WINDOW     ((HANDLE)-3)
 
+#define IMAGE_FILE_MACHINE_HYBRID_X86        0x3A64  // Hybrid: x86
+
+#define PROCESS_CREATE_FLAGS_BREAKAWAY 0x00000001 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_NO_DEBUG_INHERIT 0x00000002 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_INHERIT_HANDLES 0x00000004 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_OVERRIDE_ADDRESS_SPACE 0x00000008 // NtCreateProcessEx only
+#define PROCESS_CREATE_FLAGS_LARGE_PAGES 0x00000010 // NtCreateProcessEx only, requires SeLockMemory
+#define PROCESS_CREATE_FLAGS_LARGE_PAGE_SYSTEM_DLL 0x00000020 // NtCreateProcessEx only, requires SeLockMemory
+#define PROCESS_CREATE_FLAGS_PROTECTED_PROCESS 0x00000040 // NtCreateUserProcess only
+#define PROCESS_CREATE_FLAGS_CREATE_SESSION 0x00000080 // NtCreateProcessEx & NtCreateUserProcess, requires SeLoadDriver
+#define PROCESS_CREATE_FLAGS_INHERIT_FROM_PARENT 0x00000100 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_SUSPENDED 0x00000200 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_FORCE_BREAKAWAY 0x00000400 // NtCreateProcessEx & NtCreateUserProcess, requires SeTcb
+#define PROCESS_CREATE_FLAGS_MINIMAL_PROCESS 0x00000800 // NtCreateProcessEx only
+#define PROCESS_CREATE_FLAGS_RELEASE_SECTION 0x00001000 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_CLONE_MINIMAL 0x00002000 // NtCreateProcessEx only
+#define PROCESS_CREATE_FLAGS_CLONE_MINIMAL_REDUCED_COMMIT 0x00004000 //
+#define PROCESS_CREATE_FLAGS_AUXILIARY_PROCESS 0x00008000 // NtCreateProcessEx & NtCreateUserProcess, requires SeTcb
+#define PROCESS_CREATE_FLAGS_CREATE_STORE 0x00020000 // NtCreateProcessEx & NtCreateUserProcess
+#define PROCESS_CREATE_FLAGS_USE_PROTECTED_ENVIRONMENT 0x00040000 // NtCreateProcessEx & NtCreateUserProcess
+
+#define THREAD_CREATE_FLAGS_CREATE_SUSPENDED 0x00000001 // NtCreateUserProcess & NtCreateThreadEx
+#define THREAD_CREATE_FLAGS_SKIP_THREAD_ATTACH 0x00000002 // NtCreateThreadEx only
+#define THREAD_CREATE_FLAGS_HIDE_FROM_DEBUGGER 0x00000004 // NtCreateThreadEx only
+#define THREAD_CREATE_FLAGS_LOADER_WORKER 0x00000010 // NtCreateThreadEx only
+#define THREAD_CREATE_FLAGS_SKIP_LOADER_INIT 0x00000020 // NtCreateThreadEx only
+#define THREAD_CREATE_FLAGS_BYPASS_PROCESS_FREEZE 0x00000040 // NtCreateThreadEx only
+#define THREAD_CREATE_FLAGS_INITIAL_THREAD 0x00000080 // ?
+
 #define GDI_HANDLE_BUFFER_SIZE32    34
 #define GDI_HANDLE_BUFFER_SIZE64    60
-#define OBJ_INHERIT                         0x00000002L
-#define OBJ_PERMANENT                       0x00000010L
-#define OBJ_EXCLUSIVE                       0x00000020L
-#define OBJ_CASE_INSENSITIVE                0x00000040L
-#define OBJ_OPENIF                          0x00000080L
-#define OBJ_OPENLINK                        0x00000100L
-#define OBJ_KERNEL_HANDLE                   0x00000200L
-#define OBJ_FORCE_ACCESS_CHECK              0x00000400L
-#define OBJ_IGNORE_IMPERSONATED_DEVICEMAP   0x00000800L
-#define OBJ_DONT_REPARSE                    0x00001000L
-#define OBJ_VALID_ATTRIBUTES                0x00001FF2L
-#define FILE_DIRECTORY_FILE                     0x00000001
-#define FILE_WRITE_THROUGH                      0x00000002
-#define FILE_SEQUENTIAL_ONLY                    0x00000004
-#define FILE_NO_INTERMEDIATE_BUFFERING          0x00000008
 
-#define FILE_SYNCHRONOUS_IO_ALERT               0x00000010
-#define FILE_SYNCHRONOUS_IO_NONALERT            0x00000020
-#define FILE_NON_DIRECTORY_FILE                 0x00000040
-#define FILE_CREATE_TREE_CONNECTION             0x00000080
-
-#define FILE_COMPLETE_IF_OPLOCKED               0x00000100
-#define FILE_NO_EA_KNOWLEDGE                    0x00000200
-#define FILE_OPEN_REMOTE_INSTANCE               0x00000400
-#define FILE_RANDOM_ACCESS                      0x00000800
-
-#define FILE_DELETE_ON_CLOSE                    0x00001000
-#define FILE_OPEN_BY_FILE_ID                    0x00002000
-#define FILE_OPEN_FOR_BACKUP_INTENT             0x00004000
-#define FILE_NO_COMPRESSION                     0x00008000
-
-#define FILE_RESERVE_OPFILTER                   0x00100000
-#define FILE_OPEN_REPARSE_POINT                 0x00200000
-#define FILE_OPEN_NO_RECALL                     0x00400000
-#define FILE_OPEN_FOR_FREE_SPACE_QUERY          0x00800000
-
-#define FILE_COPY_STRUCTURED_STORAGE            0x00000041
-#define FILE_STRUCTURED_STORAGE                 0x00000441
-
-#define FILE_SUPERSEDE                  0x00000000
-#define FILE_OPEN                       0x00000001
-#define FILE_CREATE                     0x00000002
-#define FILE_OPEN_IF                    0x00000003
-#define FILE_OVERWRITE                  0x00000004
-#define FILE_OVERWRITE_IF               0x00000005
-#define FILE_MAXIMUM_DISPOSITION        0x00000005
-
-// NamedPipeType for NtCreateNamedPipeFile
-#define FILE_PIPE_BYTE_STREAM_TYPE 0x00000000
-#define FILE_PIPE_MESSAGE_TYPE 0x00000001
-#define FILE_PIPE_ACCEPT_REMOTE_CLIENTS 0x00000000
-#define FILE_PIPE_REJECT_REMOTE_CLIENTS 0x00000002
-#define FILE_PIPE_TYPE_VALID_MASK 0x00000003
-
-// CompletionMode for NtCreateNamedPipeFile
-#define FILE_PIPE_QUEUE_OPERATION 0x00000000
-#define FILE_PIPE_COMPLETE_OPERATION 0x00000001
-
-// ReadMode for NtCreateNamedPipeFile
-#define FILE_PIPE_BYTE_STREAM_MODE 0x00000000
-#define FILE_PIPE_MESSAGE_MODE 0x00000001
-
-// NamedPipeConfiguration for NtQueryInformationFile
-#define FILE_PIPE_INBOUND 0x00000000
-#define FILE_PIPE_OUTBOUND 0x00000001
-#define FILE_PIPE_FULL_DUPLEX 0x00000002
-
-// Create/open flags
-
-#define FILE_DIRECTORY_FILE 0x00000001
-#define FILE_WRITE_THROUGH 0x00000002
-#define FILE_SEQUENTIAL_ONLY 0x00000004
-#define FILE_NO_INTERMEDIATE_BUFFERING 0x00000008
-
-#define FILE_SYNCHRONOUS_IO_ALERT 0x00000010
-#define FILE_SYNCHRONOUS_IO_NONALERT 0x00000020
-#define FILE_NON_DIRECTORY_FILE 0x00000040
-#define FILE_CREATE_TREE_CONNECTION 0x00000080
-
-#define FILE_COMPLETE_IF_OPLOCKED 0x00000100
-#define FILE_NO_EA_KNOWLEDGE 0x00000200
-#define FILE_OPEN_FOR_RECOVERY 0x00000400
-#define FILE_RANDOM_ACCESS 0x00000800
-
-#define FILE_DELETE_ON_CLOSE 0x00001000
-#define FILE_OPEN_BY_FILE_ID 0x00002000
-#define FILE_OPEN_FOR_BACKUP_INTENT 0x00004000
-#define FILE_NO_COMPRESSION 0x00008000
-#if (PHNT_VERSION >= PHNT_WIN7)
-#define FILE_OPEN_REQUIRING_OPLOCK 0x00010000
-#define FILE_DISALLOW_EXCLUSIVE 0x00020000
-#endif
-#if (PHNT_VERSION >= PHNT_WIN8)
-#define FILE_SESSION_AWARE 0x00040000
-#endif
-
-#define FILE_RESERVE_OPFILTER 0x00100000
-#define FILE_OPEN_REPARSE_POINT 0x00200000
-#define FILE_OPEN_NO_RECALL 0x00400000
-#define FILE_OPEN_FOR_FREE_SPACE_QUERY 0x00800000
-
-#define FILE_COPY_STRUCTURED_STORAGE 0x00000041
-#define FILE_STRUCTURED_STORAGE 0x00000441
-
-// I/O status information values for NtCreateFile/NtOpenFile
-
-#define FILE_SUPERSEDED 0x00000000
-#define FILE_OPENED 0x00000001
-#define FILE_CREATED 0x00000002
-#define FILE_OVERWRITTEN 0x00000003
-#define FILE_EXISTS 0x00000004
-#define FILE_DOES_NOT_EXIST 0x00000005
-
-// Special ByteOffset parameters
-
-#define FILE_WRITE_TO_END_OF_FILE 0xffffffff
-#define FILE_USE_FILE_POINTER_POSITION 0xfffffffe
 #ifndef _WIN64
 #define GDI_HANDLE_BUFFER_SIZE GDI_HANDLE_BUFFER_SIZE32
 #else
@@ -181,7 +97,7 @@ BOOL SW3_PopulateSyscallList();
 extern HANDLE CsrPortHandle;
 extern ULONG_PTR CsrPortMemoryRemoteDelta;
 extern USHORT OSBuildNumber;
-
+extern HANDLE ConhostConsoleHandle;
 
 EXTERN_C DWORD SW3_GetSyscallNumber(DWORD FunctionHash);
 EXTERN_C PVOID SW3_GetSyscallAddress(DWORD FunctionHash);
@@ -966,7 +882,7 @@ typedef struct _PORT_MESSAGE
 	{
 		ULONGLONG ClientViewSize; // only valid for LPC_CONNECTION_REQUEST messages
 		ULONG CallbackId; // only valid for LPC_REQUEST messages
-	};//36[¶ÔÆë40]
+	};//36[å¯¹é½40]
 } PORT_MESSAGE, * PPORT_MESSAGE;//[40]
 
 typedef struct _PORT_DATA_ENTRY
@@ -1441,22 +1357,28 @@ typedef struct _RTL_DRIVE_LETTER_CURDIR
 	UNICODE_STRING DosPath;
 } RTL_DRIVE_LETTER_CURDIR, * PRTL_DRIVE_LETTER_CURDIR;
 #define RTL_MAX_DRIVE_LETTERS 32
+#define RTL_DRIVE_LETTER_VALID (USHORT)0x0001
+
 typedef struct _RTL_USER_PROCESS_PARAMETERS
 {
-	ULONG MaximumLength;	//6c0
-	ULONG Length;//6c0
-	ULONG Flags;//0
-	ULONG DebugFlags;//0
-	HANDLE ConsoleHandle;//NULL
-	ULONG ConsoleFlags;//0
-	HANDLE StandardInput;//NULL
-	HANDLE StandardOutput;//NULL
-	HANDLE StandardError;//NULL
+	ULONG MaximumLength;
+	ULONG Length;
+
+	ULONG Flags;
+	ULONG DebugFlags;
+
+	HANDLE ConsoleHandle;
+	ULONG ConsoleFlags;
+	HANDLE StandardInput;
+	HANDLE StandardOutput;
+	HANDLE StandardError;
+	//56
 	CURDIR CurrentDirectory;
 	UNICODE_STRING DllPath;
 	UNICODE_STRING ImagePathName;
 	UNICODE_STRING CommandLine;
-	PWSTR Environment;
+	PVOID Environment;
+
 	ULONG StartingX;
 	ULONG StartingY;
 	ULONG CountX;
@@ -1464,6 +1386,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	ULONG CountCharsX;
 	ULONG CountCharsY;
 	ULONG FillAttribute;
+
 	ULONG WindowFlags;
 	ULONG ShowWindowFlags;
 	UNICODE_STRING WindowTitle;
@@ -1471,12 +1394,18 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	UNICODE_STRING ShellInfo;
 	UNICODE_STRING RuntimeData;
 	RTL_DRIVE_LETTER_CURDIR CurrentDirectories[RTL_MAX_DRIVE_LETTERS];
-#if (NTDDI_VERSION >= NTDDI_LONGHORN)
-	SIZE_T EnvironmentSize;
-#endif
-#if (NTDDI_VERSION >= NTDDI_WIN7)
-	SIZE_T EnvironmentVersion;
-#endif
+
+	ULONG_PTR EnvironmentSize;
+	ULONG_PTR EnvironmentVersion;
+
+	PVOID PackageDependencyData; //0x400
+	ULONG ProcessGroupId;
+	ULONG LoaderThreads;
+
+	UNICODE_STRING RedirectionDllName; // REDSTONE4
+	UNICODE_STRING HeapPartitionName; // 19H1
+	ULONG_PTR DefaultThreadpoolCpuSetMasks;
+	ULONG DefaultThreadpoolCpuSetMaskCount;
 } RTL_USER_PROCESS_PARAMETERS, * PRTL_USER_PROCESS_PARAMETERS;
 // begin_rev
 #define PS_ATTRIBUTE_NUMBER_MASK 0x0000ffff
@@ -1526,6 +1455,68 @@ typedef enum _PS_ATTRIBUTE_NUM
     ((Thread) ? PS_ATTRIBUTE_THREAD : 0) | \
     ((Input) ? PS_ATTRIBUTE_INPUT : 0) | \
     ((Additive) ? PS_ATTRIBUTE_ADDITIVE : 0))
+#define PS_ATTRIBUTE_PARENT_PROCESS \
+    PsAttributeValue(PsAttributeParentProcess, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_DEBUG_OBJECT \
+    PsAttributeValue(PsAttributeDebugObject, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_TOKEN \
+    PsAttributeValue(PsAttributeToken, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_CLIENT_ID \
+    PsAttributeValue(PsAttributeClientId, TRUE, FALSE, FALSE)
+#define PS_ATTRIBUTE_TEB_ADDRESS \
+    PsAttributeValue(PsAttributeTebAddress, TRUE, FALSE, FALSE)
+#define PS_ATTRIBUTE_IMAGE_NAME \
+    PsAttributeValue(PsAttributeImageName, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_IMAGE_INFO \
+    PsAttributeValue(PsAttributeImageInfo, FALSE, FALSE, FALSE)
+#define PS_ATTRIBUTE_MEMORY_RESERVE \
+    PsAttributeValue(PsAttributeMemoryReserve, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_PRIORITY_CLASS \
+    PsAttributeValue(PsAttributePriorityClass, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_ERROR_MODE \
+    PsAttributeValue(PsAttributeErrorMode, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_STD_HANDLE_INFO \
+    PsAttributeValue(PsAttributeStdHandleInfo, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_HANDLE_LIST \
+    PsAttributeValue(PsAttributeHandleList, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_GROUP_AFFINITY \
+    PsAttributeValue(PsAttributeGroupAffinity, TRUE, TRUE, FALSE)
+#define PS_ATTRIBUTE_PREFERRED_NODE \
+    PsAttributeValue(PsAttributePreferredNode, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_IDEAL_PROCESSOR \
+    PsAttributeValue(PsAttributeIdealProcessor, TRUE, TRUE, FALSE)
+#define PS_ATTRIBUTE_UMS_THREAD \
+    PsAttributeValue(PsAttributeUmsThread, TRUE, TRUE, FALSE)
+#define PS_ATTRIBUTE_MITIGATION_OPTIONS \
+    PsAttributeValue(PsAttributeMitigationOptions, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_PROTECTION_LEVEL \
+    PsAttributeValue(PsAttributeProtectionLevel, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_SECURE_PROCESS \
+    PsAttributeValue(PsAttributeSecureProcess, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_JOB_LIST \
+    PsAttributeValue(PsAttributeJobList, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_CHILD_PROCESS_POLICY \
+    PsAttributeValue(PsAttributeChildProcessPolicy, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY \
+    PsAttributeValue(PsAttributeAllApplicationPackagesPolicy, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_WIN32K_FILTER \
+    PsAttributeValue(PsAttributeWin32kFilter, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_SAFE_OPEN_PROMPT_ORIGIN_CLAIM \
+    PsAttributeValue(PsAttributeSafeOpenPromptOriginClaim, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_BNO_ISOLATION \
+    PsAttributeValue(PsAttributeBnoIsolation, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_DESKTOP_APP_POLICY \
+    PsAttributeValue(PsAttributeDesktopAppPolicy, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_CHPE \
+    PsAttributeValue(PsAttributeChpe, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_MITIGATION_AUDIT_OPTIONS \
+    PsAttributeValue(PsAttributeMitigationAuditOptions, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_MACHINE_TYPE \
+    PsAttributeValue(PsAttributeMachineType, FALSE, TRUE, TRUE)
+#define PS_ATTRIBUTE_COMPONENT_FILTER \
+    PsAttributeValue(PsAttributeComponentFilter, FALSE, TRUE, FALSE)
+#define PS_ATTRIBUTE_ENABLE_OPTIONAL_XSTATE_FEATURES \
+    PsAttributeValue(PsAttributeEnableOptionalXStateFeatures, TRUE, TRUE, FALSE)
 
 typedef struct _PS_ATTRIBUTE {
 	ULONGLONG Attribute;				/// PROC_THREAD_ATTRIBUTE_XXX | PROC_THREAD_ATTRIBUTE_XXX modifiers, see ProcThreadAttributeValue macro and Windows Internals 6 (372)
@@ -1539,7 +1530,7 @@ typedef struct _PS_ATTRIBUTE {
 
 typedef struct _PS_ATTRIBUTE_LIST {
 	SIZE_T TotalLength;					/// sizeof(PS_ATTRIBUTE_LIST)
-	PS_ATTRIBUTE Attributes[5];			/// Depends on how many attribute entries should be supplied to NtCreateUserProcess
+	PS_ATTRIBUTE Attributes[30];			/// Depends on how many attribute entries should be supplied to NtCreateUserProcess
 } PS_ATTRIBUTE_LIST, * PPS_ATTRIBUTE_LIST;
 
 typedef struct _PS_MEMORY_RESERVE {
@@ -1644,7 +1635,7 @@ typedef struct _PS_CREATE_INFO {
 			ULONG ManifestSize;
 		} SuccessState;
 	};
-} PS_CREATE_INFO, * PPS_CREATE_INFO;//×Ü¹² 0x58 = 88
+} PS_CREATE_INFO, * PPS_CREATE_INFO;//æ€»å…± 0x58 = 88
 
 typedef struct _TEB_ACTIVE_FRAME_CONTEXT
 {
@@ -2160,4 +2151,197 @@ typedef enum _TOKEN_INFORMATION_CLASS
 	MaxTokenInfoClass
 } TOKEN_INFORMATION_CLASS, * PTOKEN_INFORMATION_CLASS;
 */
+typedef enum _NT_PRODUCT_TYPE
+{
+	NtProductWinNt = 1,
+	NtProductLanManNt,
+	NtProductServer
+} NT_PRODUCT_TYPE, * PNT_PRODUCT_TYPE;
+
+#define PROCESSOR_FEATURE_MAX 64
+typedef enum _ALTERNATIVE_ARCHITECTURE_TYPE
+{
+	StandardDesign,
+	NEC98x86,
+	EndAlternatives
+} ALTERNATIVE_ARCHITECTURE_TYPE;
+typedef struct _KSYSTEM_TIME
+{
+	ULONG LowPart;
+	LONG High1Time;
+	LONG High2Time;
+} KSYSTEM_TIME, * PKSYSTEM_TIME;
+typedef struct _KUSER_SHARED_DATA
+{
+	ULONG TickCountLowDeprecated;
+	ULONG TickCountMultiplier;
+
+	volatile KSYSTEM_TIME InterruptTime;
+	volatile KSYSTEM_TIME SystemTime;
+	volatile KSYSTEM_TIME TimeZoneBias;
+
+	USHORT ImageNumberLow;
+	USHORT ImageNumberHigh;
+
+	WCHAR NtSystemRoot[260];
+
+	ULONG MaxStackTraceDepth;
+
+	ULONG CryptoExponent;
+
+	ULONG TimeZoneId;
+	ULONG LargePageMinimum;
+	ULONG AitSamplingValue;
+	ULONG AppCompatFlag;
+	ULONGLONG RNGSeedVersion;
+	ULONG GlobalValidationRunlevel;
+	LONG TimeZoneBiasStamp;
+
+	ULONG NtBuildNumber;
+	NT_PRODUCT_TYPE NtProductType;
+	BOOLEAN ProductTypeIsValid;
+	UCHAR Reserved0[1];
+	USHORT NativeProcessorArchitecture;
+
+	ULONG NtMajorVersion;
+	ULONG NtMinorVersion;
+
+	BOOLEAN ProcessorFeatures[PROCESSOR_FEATURE_MAX];
+
+	ULONG Reserved1;
+	ULONG Reserved3;
+
+	volatile ULONG TimeSlip;
+
+	ALTERNATIVE_ARCHITECTURE_TYPE AlternativeArchitecture;
+	ULONG BootId;
+
+	LARGE_INTEGER SystemExpirationDate;
+
+	ULONG SuiteMask;
+
+	BOOLEAN KdDebuggerEnabled;
+	union
+	{
+		UCHAR MitigationPolicies;
+		struct
+		{
+			UCHAR NXSupportPolicy : 2;
+			UCHAR SEHValidationPolicy : 2;
+			UCHAR CurDirDevicesSkippedForDlls : 2;
+			UCHAR Reserved : 2;
+		};
+	};
+
+	USHORT CyclesPerYield;
+
+	volatile ULONG ActiveConsoleId;
+
+	volatile ULONG DismountCount;
+
+	ULONG ComPlusPackage;
+
+	ULONG LastSystemRITEventTickCount;
+
+	ULONG NumberOfPhysicalPages;
+
+	BOOLEAN SafeBootMode;
+	UCHAR VirtualizationFlags;
+	UCHAR Reserved12[2];
+
+	union
+	{
+		ULONG SharedDataFlags;
+		struct
+		{
+			ULONG DbgErrorPortPresent : 1;
+			ULONG DbgElevationEnabled : 1;
+			ULONG DbgVirtEnabled : 1;
+			ULONG DbgInstallerDetectEnabled : 1;
+			ULONG DbgLkgEnabled : 1;
+			ULONG DbgDynProcessorEnabled : 1;
+			ULONG DbgConsoleBrokerEnabled : 1;
+			ULONG DbgSecureBootEnabled : 1;
+			ULONG DbgMultiSessionSku : 1;
+			ULONG DbgMultiUsersInSessionSku : 1;
+			ULONG DbgStateSeparationEnabled : 1;
+			ULONG SpareBits : 21;
+		};
+	};
+	ULONG DataFlagsPad[1];
+
+	ULONGLONG TestRetInstruction;
+	LONGLONG QpcFrequency;
+
+	ULONG SystemCall;
+
+	union
+	{
+		ULONG AllFlags;
+		struct
+		{
+			ULONG Win32Process : 1;
+			ULONG Sgx2Enclave : 1;
+			ULONG VbsBasicEnclave : 1;
+			ULONG SpareBits : 29;
+		};
+	} UserCetAvailableEnvironments;
+
+	ULONGLONG SystemCallPad[2];
+
+	union
+	{
+		volatile KSYSTEM_TIME TickCount;
+		volatile ULONG64 TickCountQuad;
+		struct
+		{
+			ULONG ReservedTickCountOverlay[3];
+			ULONG TickCountPad[1];
+		};
+	};
+
+	ULONG Cookie;
+	ULONG CookiePad[1];
+
+	LONGLONG ConsoleSessionForegroundProcessId;
+	ULONGLONG TimeUpdateLock;
+	ULONGLONG BaselineSystemTimeQpc;
+	ULONGLONG BaselineInterruptTimeQpc;
+	ULONGLONG QpcSystemTimeIncrement;
+	ULONGLONG QpcInterruptTimeIncrement;
+	UCHAR QpcSystemTimeIncrementShift;
+	UCHAR QpcInterruptTimeIncrementShift;
+
+	USHORT UnparkedProcessorCount;
+	ULONG EnclaveFeatureMask[4];
+
+	ULONG TelemetryCoverageRound;
+
+	USHORT UserModeGlobalLogger[16];
+	ULONG ImageFileExecutionOptions;
+
+	ULONG LangGenerationCount;
+	ULONGLONG Reserved4;
+	volatile ULONG64 InterruptTimeBias;
+	volatile ULONG64 QpcBias;
+
+	ULONG ActiveProcessorCount;
+	volatile UCHAR ActiveGroupCount;
+	UCHAR Reserved9;
+	union
+	{
+		USHORT QpcData;
+		struct
+		{
+			volatile UCHAR QpcBypassEnabled : 1;
+			UCHAR QpcShift : 1;
+		};
+	};
+
+	LARGE_INTEGER TimeZoneBiasEffectiveStart;
+	LARGE_INTEGER TimeZoneBiasEffectiveEnd;
+	XSTATE_CONFIGURATION XState;
+	KSYSTEM_TIME FeatureConfigurationChangeStamp;
+	ULONG Spare;
+} KUSER_SHARED_DATA, * PKUSER_SHARED_DATA;
 #endif

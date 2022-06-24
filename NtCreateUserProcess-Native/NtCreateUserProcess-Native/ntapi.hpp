@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "syscalls.hpp"
 #define NtCurrentPeb() (NtCurrentTeb()->ProcessEnvironmentBlock)
 #define NtCurrentProcess()	   ((HANDLE)-1)

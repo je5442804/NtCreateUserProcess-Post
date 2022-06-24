@@ -1,4 +1,4 @@
-#include "misc.hpp"
+﻿#include "misc.hpp"
 #include <stdio.h>
 
 void CustomSecureZeroMemory(IN OUT PVOID ptr, IN SIZE_T cnt)

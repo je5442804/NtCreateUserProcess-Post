@@ -1,7 +1,7 @@
-//#pragma once
+ï»¿//#pragma once
 #include "syscalls.hpp"
 
-NTSTATUS CallCsrss(HANDLE hProcess,HANDLE hThread, PS_CREATE_INFO CreateInfo,UNICODE_STRING Win32Path, UNICODE_STRING NtPath,CLIENT_ID ClientId);
+NTSTATUS CallCsrss(HANDLE hProcess,HANDLE hThread, PS_CREATE_INFO CreateInfo,UNICODE_STRING Win32Path, UNICODE_STRING NtPath,CLIENT_ID ClientId, SECTION_IMAGE_INFORMATION SectionImageInfomation);
 #define CSRSRV_SERVERDLL_INDEX          0
 #define CSRSRV_FIRST_API_NUMBER         0
 
@@ -46,7 +46,7 @@ typedef struct _BASESRV_API_CONNECTINFO {
 //
 // Message format for messages sent from the client to the server
 //
-//ÕâÍæÒâ»¹ÓÐÓÃÂð
+//è¿™çŽ©æ„è¿˜æœ‰ç”¨å—
 typedef enum _BASESRV_API_NUMBER {
     BasepCreateProcess = BASESRV_FIRST_API_NUMBER,
     BasepCreateThread,
@@ -125,7 +125,7 @@ typedef struct _CSR_API_MSG {
         };
     };
 } CSR_API_MSG, * PCSR_API_MSG;
-//432 = 0x1B0, but should be 456 = 0x1C8 ²î=24
+//432 = 0x1B0, but should be 456 = 0x1C8 å·®=24
 typedef struct _SXS_CONSTANT_WIN32_NT_PATH_PAIR
 {
     PCUNICODE_STRING Win32;
@@ -184,8 +184,8 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2012 {//win 10 new
     ULONG   ProcessParameterFlags;//4
     //=====================================================
     HANDLE FileHandle;//8
-    UNICODE_STRING Win32Path;//16
-    UNICODE_STRING NtPath;//32;
+    UNICODE_STRING Win32ImagePath;//16
+    UNICODE_STRING NtImagePath;//32;
     PVOID AppCompatSxsData;//48
     SIZE_T AppCompatSxsDataSize;//56
     BYTE Reserved1[8];//64
@@ -200,7 +200,7 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2012 {//win 10 new
     ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00)
     ULONG UnknowAppCompat;// [20] + 4 164->168
     ULONG_PTR Reversed;
-    //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [Ó¦ÓÃ³ÌÐòÇåµ¥ÇëÇó×îµÍÈ¨ÏÞ¼¶±ðÀ´ÔËÐÐÓ¦ÓÃ³ÌÐò]
+    //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [åº”ç”¨ç¨‹åºæ¸…å•è¯·æ±‚æœ€ä½Žæƒé™çº§åˆ«æ¥è¿è¡Œåº”ç”¨ç¨‹åº]
     UNICODE_STRING AssemblyIdentity;    //176->192 L"-----------------------------------------------------------" [21]-[22] 
     
     //Microsoft.Windows.Shell.notepad
@@ -214,8 +214,8 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2016 {//win 10 new
     ULONG   ProcessParameterFlags;//4
     //=====================================================
     HANDLE FileHandle;//8
-    UNICODE_STRING Win32Path;//16
-    UNICODE_STRING NtPath;//32;
+    UNICODE_STRING Win32ImagePath;//16
+    UNICODE_STRING NtImagePath;//32;
     PVOID AppCompatSxsData;//48
     SIZE_T AppCompatSxsDataSize;//56
     BYTE Reserved1[8];//64
@@ -228,7 +228,7 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2016 {//win 10 new
     UNICODE_STRING AssemblyDirectory;//120->136
     UNICODE_STRING CacheSxsLanguageBuffer; //136->152 ===== [17]-[18]
     ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00)
-    ULONG UnknowAppCompat;// [20] + 4 164->168  //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [Ó¦ÓÃ³ÌÐòÇåµ¥ÇëÇó×îµÍÈ¨ÏÞ¼¶±ðÀ´ÔËÐÐÓ¦ÓÃ³ÌÐò]
+    ULONG UnknowAppCompat;// [20] + 4 164->168  //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [åº”ç”¨ç¨‹åºæ¸…å•è¯·æ±‚æœ€ä½Žæƒé™çº§åˆ«æ¥è¿è¡Œåº”ç”¨ç¨‹åº]
     UNICODE_STRING AssemblyIdentity;    //168->184 L"-----------------------------------------------------------" [21]-[22] 
     //Microsoft.Windows.Shell.notepad
 } BASE_SXS_CREATEPROCESS_MSG_2016, * PNEW_BASE_SXS_CREATEPROCESS_MSG_2016;
@@ -239,8 +239,8 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG {//win 10 new
     ULONG   ProcessParameterFlags;//4
     //=====================================================
     HANDLE FileHandle;//8
-    UNICODE_STRING Win32Path;//16
-    UNICODE_STRING NtPath;//32;
+    UNICODE_STRING Win32ImagePath;//16
+    UNICODE_STRING NtImagePath;//32;
     PVOID AppCompatSxsData;//48
     SIZE_T AppCompatSxsDataSize;//56
     //========================================
@@ -254,7 +254,7 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG {//win 10 new
     UNICODE_STRING CacheSxsLanguageBuffer; //136->152 ===== [17]-[18] // 
     ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00) *(_DWORD *)(Message + 156) = 0;
     ULONG UnknowAppCompat;// [20] + 4 164->168
-    //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [Ó¦ÓÃ³ÌÐòÇåµ¥ÇëÇó×îµÍÈ¨ÏÞ¼¶±ðÀ´ÔËÐÐÓ¦ÓÃ³ÌÐò]
+    //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [åº”ç”¨ç¨‹åºæ¸…å•è¯·æ±‚æœ€ä½Žæƒé™çº§åˆ«æ¥è¿è¡Œåº”ç”¨ç¨‹åº]
     UNICODE_STRING AssemblyIdentity;    //168->184 L"-----------------------------------------------------------" [21]-[22] //Microsoft.Windows.Shell.notepad
     BYTE Reserved7[8];//184->192 [23] Appcompat_CompatCache Related
     PVOID Unknow_PackageActivationSxsInfo;//192-> [24] USHORT?

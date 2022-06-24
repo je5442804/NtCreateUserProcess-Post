@@ -1,4 +1,4 @@
-#include "csrss.hpp"
+﻿#include "csrss.hpp"
 #include "ntapi.hpp"
 #include <stdio.h>
 
@@ -33,8 +33,8 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 		0,
 		0
 	);
-	wprintf(L"[*] ALPC Status: 0x%08x\n", Status);
-	wprintf(L"[*] ALPC ApiMessage ReturnStatus : 0x%08x\n", ApiMessage->ReturnValue);
+	wprintf(L"[*] NtAlpcSendWaitReceivePort Status: 0x%08x\n", Status);
+	wprintf(L"[*] ApiMessage ReturnStatus: 0x%08x\n", ApiMessage->ReturnValue);
 	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CaptureBuffer - CsrPortMemoryRemoteDelta);
 	//
 	// Loop over all of the pointers to Port Memory within the message
@@ -127,8 +127,8 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 		//wprintf(L"(char)NtCurrentPeb()->ReadOnlyStaticServerData-(char*)NtCurrentPeb()->ReadOnlySharedMemoryBase = 0x%08x\n", (char*)NtCurrentPeb()->ReadOnlyStaticServerData - (NtCurrentPeb()->ReadOnlySharedMemoryBase));
 		CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CsrPortHeap + ((char*)NtCurrentPeb()->ReadOnlyStaticServerData - NtCurrentPeb()->ReadOnlySharedMemoryBase));//Thank you!
 		if (!CaptureBuffer)
-			return 0xC0000017;//Faker
-		wprintf(L"[+] CaptureBuffer = 0x%p\n", CaptureBuffer);
+			return 0xC0000017;
+		wprintf(L"[+] CaptureBuffer FakeAlloc = 0x%p\n", CaptureBuffer);
 		CaptureBuffer->Length = Length;
 		CaptureBuffer->CountMessagePointers = 0;
 		CaptureBuffer->FreeSpace = (char*)CaptureBuffer->MessagePointerOffsets + NumberOfStringsToCapture * sizeof(ULONG_PTR);
@@ -148,7 +148,7 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 	}
 	return 0;
 }
-NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, UNICODE_STRING Win32Path, UNICODE_STRING NtPath, CLIENT_ID ClientId)
+NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, UNICODE_STRING Win32ImagePath, UNICODE_STRING NtImagePath, CLIENT_ID ClientId, SECTION_IMAGE_INFORMATION SectionImageInfomation)
 {
 	//ULONG NtMajorVersion = *(PULONG)(0x7FFE0000 + 0x26C);
 	//ULONG NtMinorVersion = *(PULONG)(0x7FFE0000 + 0x270);
@@ -161,6 +161,34 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	ULONG DataLength = 0;
 	UNICODE_STRING CacheSxsLanguageBuffer = { 0 };
 	UNICODE_STRING AssemblyIdentity = { 0 };
+	USHORT ImageProcessorArchitecture = 0;
+
+	switch (SectionImageInfomation.Machine)
+	{
+	case IMAGE_FILE_MACHINE_I386:
+		//If this is a .NET ILONLY that needs to run in a 64-bit addressspace, then let SXS be aware of this
+		if (CreateInfo.SuccessState.u2.OutputFlags & 0x2)
+			ImageProcessorArchitecture = SharedUserData->NativeProcessorArchitecture;
+		else
+			ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_IA32_ON_WIN64;
+		break;
+	case IMAGE_FILE_MACHINE_ARMNT:
+		ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_ARM;
+		break;
+	case IMAGE_FILE_MACHINE_HYBRID_X86:
+		ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_IA32_ON_WIN64;
+		break;
+	case IMAGE_FILE_MACHINE_AMD64:
+		ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
+		break;
+	case IMAGE_FILE_MACHINE_ARM64:
+		ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_ARM64;
+		break;
+	default:
+		wprintf(L"[*] Kernel32: No mapping for ImageInformation.Machine == %04x\n", SectionImageInfomation.Machine);//DbgPrint_0
+		ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_UNKNOWN;
+		break;
+	}
 
 	CacheSxsLanguageBuffer.Buffer = (PWSTR)L"zh-CN\0zh-Hans\0zh\0en-US\0en"; // zh-CN en-US
 	CacheSxsLanguageBuffer.Length = 54;//8?
@@ -173,7 +201,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	BaseCreateProcessMessage->ProcessHandle = hProcess;
 	BaseCreateProcessMessage->ThreadHandle = hThread;
 	BaseCreateProcessMessage->ClientId = ClientId;
-	BaseCreateProcessMessage->CreationFlags = EXTENDED_STARTUPINFO_PRESENT | IDLE_PRIORITY_CLASS;//0x80040 ?? &0xFFFFFFFC
+	BaseCreateProcessMessage->CreationFlags = 0;//0x80040 ?? &0xFFFFFFFC
 	BaseCreateProcessMessage->VdmBinaryType = NULL;
 	wprintf(L"============================================================================================\n");
 	wprintf(L"OS: %d\n", OSBuildNumber);
@@ -188,9 +216,9 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->u.win2022.Sxs.ProcessParameterFlags = 0x6001;
 		BaseCreateProcessMessage->u.win2022.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2022.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
-		BaseCreateProcessMessage->u.win2022.ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
-		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2022.Sxs.Win32Path = Win32Path);
-		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2022.Sxs.NtPath = NtPath);
+		BaseCreateProcessMessage->u.win2022.ProcessorArchitecture = ImageProcessorArchitecture;
+		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2022.Sxs.Win32ImagePath = Win32ImagePath);
+		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2022.Sxs.NtImagePath = NtImagePath);
 		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2022.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
 		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2022.Sxs.AssemblyIdentity = AssemblyIdentity);
 
@@ -210,9 +238,9 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->u.win2012.Sxs.ProcessParameterFlags = 0x6001;
 		BaseCreateProcessMessage->u.win2012.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2012.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
-		BaseCreateProcessMessage->u.win2012.ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
-		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2012.Sxs.Win32Path = Win32Path);
-		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2012.Sxs.NtPath = NtPath);
+		BaseCreateProcessMessage->u.win2012.ProcessorArchitecture = ImageProcessorArchitecture;
+		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2012.Sxs.Win32ImagePath = Win32ImagePath);
+		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2012.Sxs.NtImagePath = NtImagePath);
 		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2012.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
 		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2012.Sxs.AssemblyIdentity = AssemblyIdentity);
 
@@ -232,9 +260,9 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->u.win2016.Sxs.ProcessParameterFlags = 0x6001;
 		BaseCreateProcessMessage->u.win2016.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2016.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
-		BaseCreateProcessMessage->u.win2016.ProcessorArchitecture = PROCESSOR_ARCHITECTURE_AMD64;
-		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2016.Sxs.Win32Path = Win32Path);
-		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2016.Sxs.NtPath = NtPath);
+		BaseCreateProcessMessage->u.win2016.ProcessorArchitecture = ImageProcessorArchitecture;
+		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2016.Sxs.Win32ImagePath = Win32ImagePath);
+		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2016.Sxs.NtImagePath = NtImagePath);
 		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2016.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
 		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2016.Sxs.AssemblyIdentity = AssemblyIdentity);
 
@@ -246,18 +274,18 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	}
 	if (CsrStringsToCapture[0]->Length != 0)
 	{
-		wprintf(L"BaseCreateProcessMessage->Sxs.Win32Path: %ls\n", CsrStringsToCapture[0]->Buffer);
-		wprintf(L"BaseCreateProcessMessage->Sxs.NtPath: %ls\n", CsrStringsToCapture[1]->Buffer);
+		wprintf(L"BaseCreateProcessMessage->Sxs.Win32ImagePath: %ls\n", CsrStringsToCapture[0]->Buffer);
+		wprintf(L"BaseCreateProcessMessage->Sxs.NtImagePath: %ls\n", CsrStringsToCapture[1]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer: %ls\n", CsrStringsToCapture[2]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.AssemblyIdentity: %ls\n", CsrStringsToCapture[3]->Buffer);
 		//DbgPrint( "*** CSRSS: CaptureBuffer outside of ClientView\n" );
-		//CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xc000000d)
+		//CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xC000000D)
 		wprintf(L"[+] CsrCaptureMessageMultiUnicodeStringsInPlace: 0x%08x\n", CsrCaptureMessageMultiUnicodeStringsInPlace(&CaptureBuffer, 4, CsrStringsToCapture));
 		return CsrClientCallServer((PCSR_API_MSG)&BaseAPIMessage, CaptureBuffer, CSRAPINumber, DataLength);
 	}
 	else
 	{
-		return 0xc0000005;
+		return 0xC0000005;
 	}
 }
 
