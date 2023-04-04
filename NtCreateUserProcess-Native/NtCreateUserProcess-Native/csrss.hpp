@@ -22,6 +22,23 @@ NTSTATUS CallCsrss(HANDLE hProcess,HANDLE hThread, PS_CREATE_INFO CreateInfo,UNI
 #define ALPC_MSGFLG_WAIT_ALERTABLE 0x200000
 #define ALPC_MSGFLG_WOW64_CALL 0x80000000 // dbg
 
+#define BASE_MSG_SXS_MANIFEST_PRESENT                                   (0x0001)
+#define BASE_MSG_SXS_POLICY_PRESENT                                     (0x0002)
+#define BASE_MSG_SXS_SYSTEM_DEFAULT_TEXTUAL_ASSEMBLY_IDENTITY_PRESENT   (0x0004)
+#define BASE_MSG_SXS_TEXTUAL_ASSEMBLY_IDENTITY_PRESENT                  (0x0008)
+#define BASE_MSG_SXS_APP_RUNNING_IN_SAFEMODE                            (0x0010)
+#define BASE_MSG_SXS_NO_ISOLATION                                       (0x0020) // rev
+#define BASE_MSG_SXS_ALTERNATIVE_MODE                                   (0x0040) // rev
+#define BASE_MSG_SXS_DEV_OVERRIDE_PRESENT                               (0x0080) // rev
+#define BASE_MSG_SXS_MANIFEST_OVERRIDE_PRESENT                          (0x0100) // rev
+#define BASE_MSG_SXS_PACKAGE_IDENTITY_PRESENT                           (0x0400) // rev
+#define BASE_MSG_SXS_FULL_TRUST_INTEGRITY_PRESENT                       (0x0800) // rev
+
+#define BASE_CREATE_PROCESS_MSG_PROCESS_FLAG_FEEDBACK_ON                1
+#define BASE_CREATE_PROCESS_MSG_PROCESS_FLAG_GUI_WAIT                   2
+#define BASE_CREATE_PROCESS_MSG_THREAD_FLAG_CROSS_SESSION               1
+#define BASE_CREATE_PROCESS_MSG_THREAD_FLAG_PROTECTED_PROCESS           2
+
 typedef ULONG CSR_API_NUMBER;
 #define CSR_MAKE_API_NUMBER( DllIndex, ApiIndex ) \
     (CSR_API_NUMBER)(((DllIndex) << 16) | (ApiIndex))
@@ -45,14 +62,12 @@ typedef struct _BASESRV_API_CONNECTINFO {
 #define BASESRV_VERSION 0x10000
 //
 // Message format for messages sent from the client to the server
-//
-//这玩意还有用吗
 typedef enum _BASESRV_API_NUMBER {
-    BasepCreateProcess = BASESRV_FIRST_API_NUMBER,
-    BasepCreateThread,
-    BasepGetTempFile,
-    BasepExitProcess,
-    BasepDebugProcess,
+    BasepCreateProcess = BASESRV_FIRST_API_NUMBER,             // in: TBaseCreateProcessMsgV1
+    BasepDeadEntry1,
+    BasepDeadEntry2,
+    BasepDeadEntry3,
+    BasepDeadEntry4,
     BasepCheckVDM,
     BasepUpdateVDMEntry,
     BasepGetNextVDMCommand,
@@ -60,26 +75,25 @@ typedef enum _BASESRV_API_NUMBER {
     BasepIsFirstVDM,
     BasepGetVDMExitCode,
     BasepSetReenterCount,
-    BasepSetProcessShutdownParam,
-    BasepGetProcessShutdownParam,
-    BasepNlsSetUserInfo,
-    BasepNlsSetMultipleUserInfo,
-    BasepNlsCreateSection,
+    BasepSetProcessShutdownParam,   // in: TBaseShutdownParamMsg
+    BasepGetProcessShutdownParam,   // out: TBaseShutdownParamMsg
     BasepSetVDMCurDirs,
     BasepGetVDMCurDirs,
     BasepBatNotification,
     BasepRegisterWowExec,
     BasepSoundSentryNotification,
     BasepRefreshIniFileMapping,
-    BasepDefineDosDevice,
+    BasepDefineDosDevice,          // in: TBaseDefineDosDeviceMsg
     BasepSetTermsrvAppInstallMode,
-    BasepNlsUpdateCacheCount,
     BasepSetTermsrvClientTimeZone,
-    BasepSxsCreateActivationContext,
-    BasepDebugProcessStop,
+    BasepCreateActivationContext,  // in/out: TBaseSxsCreateActivationContextMsg
+    BasepDeadEntry24,
     BasepRegisterThread,
+    BasepDeferredCreateProcess,
     BasepNlsGetUserInfo,
-    BasepMaxApiNumber
+    BasepNlsUpdateCacheCount,
+    BasepCreateProcess2,           // in: TBaseCreateProcessMsgV2, Win 10 20H1+
+    BasepCreateActivationContext2  // in/out: TBaseSxsCreateActivationContextMsgV2, Win 10 20H1+
 } BASESRV_API_NUMBER, * PBASESRV_API_NUMBER;
 
 #define PORT_CONNECT 0x0001
@@ -125,7 +139,7 @@ typedef struct _CSR_API_MSG {
         };
     };
 } CSR_API_MSG, * PCSR_API_MSG;
-//432 = 0x1B0, but should be 456 = 0x1C8 差=24
+
 typedef struct _SXS_CONSTANT_WIN32_NT_PATH_PAIR
 {
     PCUNICODE_STRING Win32;
@@ -142,15 +156,11 @@ typedef struct _SXS_WIN32_NT_PATH_PAIR
 typedef       SXS_WIN32_NT_PATH_PAIR* PSXS_WIN32_NT_PATH_PAIR;
 typedef CONST SXS_WIN32_NT_PATH_PAIR* PCSXS_WIN32_NT_PATH_PAIR;
 
-
 typedef struct _BASE_MSG_SXS_STREAM {
     IN BYTE          FileType;//0
     IN BYTE          PathType;//1
     IN BYTE          HandleType;//2
     IN UNICODE_STRING Path;//8
-    //Path.Length = 8
-    //Path.MaximumLength = 10
-    //Path.Buffer = 16
     IN HANDLE         FileHandle;//24 [24/8=3]
     IN HANDLE         SectionHandle;// 32 SectionHandle
 
@@ -158,7 +168,6 @@ typedef struct _BASE_MSG_SXS_STREAM {
     IN SIZE_T         Size; //48 OK
 } BASE_MSG_SXS_STREAM, * PBASE_MSG_SXS_STREAM;
 typedef const BASE_MSG_SXS_STREAM* PCBASE_MSG_SXS_STREAM;
-
 
 typedef struct _SXS_OVERRIDE_STREAM {
     UNICODE_STRING Name;
@@ -170,11 +179,19 @@ typedef struct _SXS_OVERRIDE_STREAM {
 } SXS_OVERRIDE_STREAM, * PSXS_OVERRIDE_STREAM;//sizeof = 32
 typedef const SXS_OVERRIDE_STREAM* PCSXS_OVERRIDE_STREAM;
 
-typedef struct  _BASE_CREATETHREAD_MSG
-{
-    HANDLE hThread;
-    CLIENT_ID ClientId;
-}BASE_CREATETHREAD_MSG, * PBASE_CREATETHREAD_MSG;
+typedef struct _BASE_MSG_SXS_HANDLES {
+    HANDLE File;
+    //
+    // Process is the process to map section into, it can
+    // be NtCurrentProcess; ensure that case is optimized.
+    //
+    HANDLE Process;
+    HANDLE Section;
+    PVOID ViewBase; // Don't use this is in 32bit code on 64bit. This is ImageBaseAddress
+} BASE_MSG_SXS_HANDLES, * PBASE_MSG_SXS_HANDLES;
+
+//uncorrected
+
 
 
 // Old: 136 = 0x88 New: 456 = 0x1C8 
@@ -260,6 +277,8 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG {//win 10 new
     PVOID Unknow_PackageActivationSxsInfo;//192-> [24] USHORT?
     BYTE Reserved[256];//208 [25]
 } BASE_SXS_CREATEPROCESS_MSG, * PBASE_SXS_CREATEPROCESS_MSG;
+
+
 typedef struct _BASE_CREATE_PROCESS {
     HANDLE ProcessHandle;//0
     HANDLE ThreadHandle;//8
@@ -303,20 +322,10 @@ typedef struct _BASE_API_MSG
     ULONG                 Reserved;//56
     union
     {
-        BASE_CREATETHREAD_MSG  BaseCreateThread;
         BASE_CREATEPROCESS_MSG BaseCreateProcess;//+8 64
     }u;
 }BASE_API_MSG, * PBASE_API_MSG;
 
-typedef struct _BASE_MSG_SXS_HANDLES {
-    HANDLE File;
-    //
-    // Process is the process to map section into, it can
-    // be NtCurrentProcess; ensure that case is optimized.
-    //
-    HANDLE Process;
-    HANDLE Section;
-    PVOID ViewBase; // Don't use this is in 32bit code on 64bit. This is ImageBaseAddress
-} BASE_MSG_SXS_HANDLES, * PBASE_MSG_SXS_HANDLES; 
+
 
 

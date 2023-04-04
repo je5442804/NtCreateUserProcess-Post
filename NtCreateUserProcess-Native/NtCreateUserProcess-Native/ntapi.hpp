@@ -1,9 +1,23 @@
 ﻿#pragma once
 #include "syscalls.hpp"
+
+#define NtCurrentProcess() ((HANDLE)(LONG_PTR)-1)
+#define ZwCurrentProcess() NtCurrentProcess()
+#define NtCurrentThread() ((HANDLE)(LONG_PTR)-2)
+#define ZwCurrentThread() NtCurrentThread()
+#define NtCurrentSession() ((HANDLE)(LONG_PTR)-3)
+#define ZwCurrentSession() NtCurrentSession()
 #define NtCurrentPeb() (NtCurrentTeb()->ProcessEnvironmentBlock)
-#define NtCurrentProcess()	   ((HANDLE)-1)
+#define RtlProcessHeap() (NtCurrentPeb()->ProcessHeap)
+
+// Windows 8 and above
+#define NtCurrentProcessToken() ((HANDLE)(LONG_PTR)-4) // NtOpenProcessToken(NtCurrentProcess())
+#define NtCurrentThreadToken() ((HANDLE)(LONG_PTR)-5) // NtOpenThreadToken(NtCurrentThread())
+#define NtCurrentThreadEffectiveToken() ((HANDLE)(LONG_PTR)-6) // NtOpenThreadToken(NtCurrentThread()) + NtOpenProcessToken(NtCurrentProcess())
 
 void CustomSecureZeroMemory(OUT PVOID  ptr, IN SIZE_T cnt);
+ULONG GetProcessParametersStructsLength(USHORT OSBuildNumber);
+
 
 EXTERN_C NTSTATUS NtAccessCheck(
 	IN PSECURITY_DESCRIPTOR pSecurityDescriptor,

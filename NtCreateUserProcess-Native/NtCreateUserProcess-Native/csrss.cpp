@@ -90,10 +90,10 @@ ULONG CsrAllocateMessagePointer(PCSR_CAPTURE_BUFFER CaptureBuffer, ULONG Length,
 		Length = (Length + 3) & ~3;
 		CaptureBuffer->FreeSpace += Length;
 	}
-	CaptureBuffer->MessagePointerOffsets[CaptureBuffer->CountMessagePointers++] =(ULONG_PTR)Pointer;
+	CaptureBuffer->MessagePointerOffsets[CaptureBuffer->CountMessagePointers++] = (ULONG_PTR)Pointer;
 	return Length;
 }
-void CsrCaptureMessageString(PCSR_CAPTURE_BUFFER CaptureBuffer,PWSTR String,ULONG Length,ULONG MaximumLength,PUNICODE_STRING CapturedString)
+void CsrCaptureMessageString(PCSR_CAPTURE_BUFFER CaptureBuffer, PWSTR String, ULONG Length, ULONG MaximumLength, PUNICODE_STRING CapturedString)
 {
 	CapturedString->Length = Length;
 	CapturedString->MaximumLength = CsrAllocateMessagePointer(CaptureBuffer, MaximumLength, (PVOID*)&CapturedString->Buffer);
@@ -103,7 +103,7 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 {
 	ULONG Length = 0;
 	if (!InOutCaptureBuffer || !NumberOfStringsToCapture)
-		return 0xC000000D;
+		return STATUS_INVALID_PARAMETER;
 	PCSR_CAPTURE_BUFFER CaptureBuffer = *InOutCaptureBuffer;
 	if (CaptureBuffer == NULL)
 	{
@@ -116,7 +116,7 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 		Length += FIELD_OFFSET(CSR_CAPTURE_BUFFER, MessagePointerOffsets) + (NumberOfStringsToCapture * sizeof(PVOID));//32 is the [MessagePointerOffsets] FIELD_OFFSET 
 		Length = (Length + (3 * (NumberOfStringsToCapture + 1))) & ~3;
 		if (Length >= MAXLONG)//Post btter
-			return 0xC000000D;
+			return STATUS_INVALID_PARAMETER;
 		//Try to evade use HeapAlloc|RtlAllocHeap,however this way is really unsafe & dangerous...
 		//Well, we are likely on the razor's edge..... 游走于刀尖之上...
 		//What if CaptureBuffer to Allocated is bigger than excepted, try to alloc new memroy? 
@@ -143,15 +143,13 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 			StringsToCapture[i]
 		);
 		if (StringsToCapture[i]->MaximumLength > StringsToCapture[i]->Length && (StringsToCapture[i]->MaximumLength - StringsToCapture[i]->Length) >= sizeof(WCHAR)) {
-				StringsToCapture[i]->Buffer[StringsToCapture[i]->Length / sizeof(WCHAR)] = 0;
+			StringsToCapture[i]->Buffer[StringsToCapture[i]->Length / sizeof(WCHAR)] = 0;
 		}
 	}
 	return 0;
 }
 NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, UNICODE_STRING Win32ImagePath, UNICODE_STRING NtImagePath, CLIENT_ID ClientId, SECTION_IMAGE_INFORMATION SectionImageInfomation)
 {
-	//ULONG NtMajorVersion = *(PULONG)(0x7FFE0000 + 0x26C);
-	//ULONG NtMinorVersion = *(PULONG)(0x7FFE0000 + 0x270);
 	NTSTATUS Status = NULL;
 	PCSR_CAPTURE_BUFFER CaptureBuffer = 0;
 	BASE_API_MSG BaseAPIMessage = { 0 };
@@ -197,18 +195,18 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	AssemblyIdentity.Buffer = (PWSTR)L"-----------------------------------------------------------";
 	AssemblyIdentity.Length = 118;
 	AssemblyIdentity.MaximumLength = 120;
-	
+
 	BaseCreateProcessMessage->ProcessHandle = hProcess;
 	BaseCreateProcessMessage->ThreadHandle = hThread;
 	BaseCreateProcessMessage->ClientId = ClientId;
-	BaseCreateProcessMessage->CreationFlags = 0;//0x80040 ?? &0xFFFFFFFC
+	BaseCreateProcessMessage->CreationFlags = 0;
 	BaseCreateProcessMessage->VdmBinaryType = NULL;
 	wprintf(L"============================================================================================\n");
 	wprintf(L"OS: %d\n", OSBuildNumber);
 	if (OSBuildNumber >= 18985)//19041 ? 19000
 	{
 		wprintf(L"[*] Windows 10 2004+ | Windows Server 2022\n");
-		CustomSecureZeroMemory( &BaseCreateProcessMessage->u.win2022.Sxs, sizeof((BaseCreateProcessMessage->u).win2022.Sxs));
+		CustomSecureZeroMemory(&BaseCreateProcessMessage->u.win2022.Sxs, sizeof((BaseCreateProcessMessage->u).win2022.Sxs));
 		BaseCreateProcessMessage->u.win2022.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2022.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
 		BaseCreateProcessMessage->u.win2022.Sxs.ManifestSize = CreateInfo.SuccessState.ManifestSize;
@@ -225,12 +223,12 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		CSRAPINumber = 0x1001D;//since 2004
 		DataLength = sizeof(*BaseCreateProcessMessage);//536 = 456(0x1c8) + 80 
 	}
-	else if (OSBuildNumber >= 18214 || (OSBuildNumber <=9600 && OSBuildNumber >=8423) || (OSBuildNumber <=7601 && OSBuildNumber >=7600))//18362 | 9200
+	else if (OSBuildNumber >= 18214 || (OSBuildNumber <= 9600 && OSBuildNumber >= 8423) || (OSBuildNumber <= 7601 && OSBuildNumber >= 7600))//18362 | 9200
 	{
 		wprintf(L"[*] Windows 10 1903 | Windows 10 1909\n");
 		wprintf(L"[*] Windows 8 | Windows 8.1 | Windows Server 2012 | Windows Server 2012 R2\n");
 		wprintf(L"[*] Windows 7 | Windows Server 2008 R2\n");
-		CustomSecureZeroMemory( &BaseCreateProcessMessage->u.win2012.Sxs, sizeof((BaseCreateProcessMessage->u).win2012.Sxs));
+		CustomSecureZeroMemory(&BaseCreateProcessMessage->u.win2012.Sxs, sizeof((BaseCreateProcessMessage->u).win2012.Sxs));
 		BaseCreateProcessMessage->u.win2012.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2012.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
 		BaseCreateProcessMessage->u.win2012.Sxs.ManifestSize = CreateInfo.SuccessState.ManifestSize;
@@ -270,7 +268,8 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	}
 	else
 	{
-		return 0xC00000BB;//STATUS_NOT_SUPPORTED
+		wprintf(L"[-] Unknow OSBuildNumber or it isn't supported.\n");
+		return STATUS_NOT_SUPPORTED;
 	}
 	if (CsrStringsToCapture[0]->Length != 0)
 	{
@@ -285,7 +284,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	}
 	else
 	{
-		return 0xC0000005;
+		return STATUS_ACCESS_VIOLATION;
 	}
 }
 

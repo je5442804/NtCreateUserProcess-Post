@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="misc.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="syscalls.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -27,15 +24,18 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="misc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="misc.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="syscalls.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="csrss.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="misc.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="ntapi.hpp">
