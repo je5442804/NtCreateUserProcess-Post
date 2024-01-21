@@ -9,6 +9,7 @@ USHORT OSBuildNumber;
 HANDLE ConhostConsoleHandle;
 RtlAllocateHeap_ RtlAllocateHeap;
 
+
 DWORD SW3_HashSyscall(PCSTR FunctionName)
 {
 	DWORD i = 0;
@@ -72,74 +73,67 @@ PVOID SC_Address(PVOID NtApiAddress)
 int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD SizeofKernelBase)
 {
 	//48 8B 4C 24 50 这个也可以?
+	SizeOfNtdll -= 0x100;
+	BYTE signaturecode[] = { 0x00, 0x48, 0x85, 0xc9, 0x48, 0x89, 0x35 };//0x75 0x07, 0xeb, 0x0a
+	BYTE signaturecode2[] = { 0x48, 0x89, 0x05, 0x00, 0xe8, 0x00, 0x4c, 0x8b, 0x45, 0x00, 0x4c, 0x8b, 0x84, 0x24};
 
-	BYTE signaturecode[] = { 0x00,0x48,0x85,0xc9,0x48,0x89,0x35 };//0x75 0x07, 0xeb, 0x0a
+	// mov r8, ...
+	// 4C 8B 84 24
+	// 4C 8B 45
 	PVOID tempaddress = 0;
-	int i = 0;
-	for (i = 0; i < SizeOfNtdll; i++)
+	DWORD i = 0;
+	DWORD addresscount = 2;
+	for (i = 0; i < SizeOfNtdll && addresscount; i++)
 	{
 		tempaddress = (char*)Ntdll + i;
-		if (!memcmp(signaturecode, tempaddress, sizeof(signaturecode) * 0.5)
+		if (!memcmp(signaturecode, tempaddress, 4)
 			&& memcmp(signaturecode, (char*)tempaddress - 1, 1)
 			&& memcmp(signaturecode, (char*)tempaddress - 2, 1) //Badsense: memcmp(signaturecode, (char*)tempaddress - 2(or 3), 1)
 			&& !memcmp((char*)signaturecode + 4, (char*)tempaddress - 6, 3))
 		{
 			//wprintf(L"found: 0x%p\n", tempaddress);
-			break;
+
+
+			PVOID CsrPortHandleAddress = ((char*)tempaddress + 1) + *((DWORD*)((__int64)tempaddress - 3));
+			//wprintf(L"[+] Get CsrPortHandle Address: 0x%p\n", CsrPortHandleAddress);
+			CsrPortHandle = *(PVOID*)CsrPortHandleAddress;
+			wprintf(L"[+] CsrPortHandle: 0x%p\n", CsrPortHandle);
+			addresscount--;
 		}
-	}
 
-	if (i == SizeOfNtdll)
-	{
-		wprintf(L"[-] No Found CsrPortHandle\n");
-		CsrPortHandle = 0;
-		return -1;
-	}
-
-	PVOID CsrPortHandleAddress = ((char*)tempaddress + 1) + *((DWORD*)((__int64)tempaddress - 3));
-	//wprintf(L"[+] Get CsrPortHandle Address: 0x%p\n", CsrPortHandleAddress);
-	CsrPortHandle = *(PVOID*)CsrPortHandleAddress;
-	wprintf(L"[+] CsrPortHandle: 0x%p\n", CsrPortHandle);
-
-	BYTE signaturecode2[] = { 0x48,0x89,0x05, 0x00,0xe8 ,0x00,0x4c,0x8b };
-	for (int i = 0; i < SizeOfNtdll; i++)
-	{
-		tempaddress = (char*)Ntdll + i;
 		if (!memcmp(signaturecode2, tempaddress, 3)
 			&& !memcmp((char*)signaturecode2 + 3, (char*)tempaddress + 6, 2)
-			&& !memcmp((char*)signaturecode2 + 5, (char*)tempaddress + 11, 3))
+			&& (!memcmp((char*)signaturecode2 + 5, (char*)tempaddress + 11, 4) || !memcmp((char*)signaturecode2 + 9, (char*)tempaddress + 11, 5)))
 		{
 			//wprintf(L"found: 0x%p\n", tempaddress);
-			break;
+			tempaddress = (char*)tempaddress + 3;
+			//wprintf(L"tempaddress= %p\n", tempaddress);
+			//wprintf(L"hex test2 RSVA: %p\n", (PVOID) * ((DWORD*)(tempaddress)));
+			PVOID CsrPortMemoryRemoteDeltaAddress = (char*)tempaddress + 4 + *((DWORD*)(tempaddress));
+			//wprintf(L"[+] Get CsrPortMemoryRemoteDelta Address: 0x%p\n", CsrPortMemoryRemoteDeltaAddress);
+			CsrPortMemoryRemoteDelta = *(ULONG_PTR*)CsrPortMemoryRemoteDeltaAddress;
+			
+			wprintf(L"[+] CsrPortMemoryRemoteDelta: 0x%p\n", (PVOID)CsrPortMemoryRemoteDelta);
+			addresscount--;
 		}
-	}
-	if (i == SizeOfNtdll)
-	{
-		wprintf(L"[-] No Found CsrPortMemoryRemoteDelta\n");
-		CsrPortMemoryRemoteDelta = 0;
-		return -1;
-	}
-	tempaddress = (char*)tempaddress + 3;
-	//wprintf(L"tempaddress= %p\n", tempaddress);
-	//wprintf(L"hex test2 RSVA: %p\n", (PVOID) * ((DWORD*)(tempaddress)));
-	PVOID CsrPortMemoryRemoteDeltaAddress = (char*)tempaddress + 4 + *((DWORD*)(tempaddress));
-	//wprintf(L"[+] Get CsrPortMemoryRemoteDelta Address: 0x%p\n", CsrPortMemoryRemoteDeltaAddress);
-	CsrPortMemoryRemoteDelta = *(ULONG_PTR*)CsrPortMemoryRemoteDeltaAddress;
-	wprintf(L"[+] CsrPortMemoryRemoteDelta: 0x%p\n", (PVOID)CsrPortMemoryRemoteDelta);
+	}	
 
-	if (OSBuildNumber > 7601)
+	if (OSBuildNumber > 7601 && KernelBase)
 	{
-		//PVOID FreeConsoleAddress = (PVOID)FreeConsole;
-		BYTE signaturecode3[] = { 0xB9,0x58,0x02,0x00,0x00,0x66,0x3B,0xC1 };
-		for (int i = 0x100; i < SizeofKernelBase - 0x100; i++)
+		PVOID FreeConsoleAddress = (PVOID)GetProcAddress((HMODULE)KernelBase, "FreeConsole");
+		//BYTE signaturecode3[] = { 0xB9,0x58,0x02,0x00,0x00,0x66,0x3B,0xC1 };
+		BYTE signaturecode3[] = { 0x48, 0x8D, 0x0D };
+		for (int i = 0; i < 0x100; i++)
 		{
-			tempaddress = (char*)KernelBase + i;
-			if (!memcmp(signaturecode3, tempaddress, 8))
+			tempaddress = (char*)FreeConsoleAddress + i;
+			if (*(BYTE*)((char*)tempaddress + 7) == 0xE8 && !memcmp(signaturecode3, tempaddress, 3))
 			{
-				tempaddress = (char*)tempaddress + 13;
-				PVOID ConhostConsoleHandleAddress = (char*)tempaddress + 4 + *((DWORD*)(tempaddress)) + 16;
+				tempaddress = (char*)tempaddress + 3;
+				PVOID ConhostConsoleHandleAddress = (char*)tempaddress + 4 + *((DWORD*)(tempaddress)) + 0x10;
+				//wprintf(L"[+] Get ConhostConsoleHandleAddress Address: 0x%p\n", ConhostConsoleHandleAddress);
 				ConhostConsoleHandle = *(HANDLE*)ConhostConsoleHandleAddress;
-				wprintf(L"[+] ConhostConsoleHandle: 0x%p, ConhostConsoleHandleAddress = 0x%p\n", (PVOID)ConhostConsoleHandle, ConhostConsoleHandleAddress);
+
+				wprintf(L"[+] ConhostConsoleHandle: 0x%p\n", (PVOID)ConhostConsoleHandle);
 				break;
 			}
 		}
@@ -212,6 +206,7 @@ BOOL SW3_PopulateSyscallList()
 		return FALSE;
 	OSBuildNumber = Peb->OSBuildNumber;
 	RtlAllocateHeap = (RtlAllocateHeap_)GetProcAddress((HMODULE)Ntdll, "RtlAllocateHeap");
+
 	GetGlobalVariable(Ntdll, SizeOfNtdll, KernelBase, SizeofKernelBase);
 
 	DWORD NumberOfNames = ExportDirectoryNtdll->NumberOfNames;

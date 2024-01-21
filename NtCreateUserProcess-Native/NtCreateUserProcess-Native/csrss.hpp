@@ -11,8 +11,11 @@ NTSTATUS CallCsrss(HANDLE hProcess,HANDLE hThread, PS_CREATE_INFO CreateInfo,UNI
 #define CONSRV_SERVERDLL_INDEX          2
 #define CONSRV_FIRST_API_NUMBER         512
 
-#define USERSRV_SERVERDLL_INDEX         3
-#define USERSRV_FIRST_API_NUMBER        1024
+#define WINSRV_SERVERDLL_INDEX         3
+#define WINSRV_FIRST_API_NUMBER        1024
+
+#define SXSSRV_SERVERDLL_INDEX         4
+//#define SXSSRV_FIRST_API_NUMBER        0
 
 #define ALPC_MSGFLG_REPLY_MESSAGE 0x1
 #define ALPC_MSGFLG_LPC_MODE 0x2 // ?
@@ -213,12 +216,12 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2012 {//win 10 new
     USHORT UnknowFlags;//1 + 2 //2012 ONLY && Value = -1
     BYTE Reserved4[8];//112->120
     UNICODE_STRING AssemblyDirectory;//120->136
-    UNICODE_STRING CacheSxsLanguageBuffer; //136->152 ===== [17]-[18]
+    UNICODE_STRING CultureFallBacks; //136->152 ===== [17]-[18]
     ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00)
     ULONG UnknowAppCompat;// [20] + 4 164->168
     ULONG_PTR Reversed;
     //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [应用程序清单请求最低权限级别来运行应用程序]
-    UNICODE_STRING AssemblyIdentity;    //176->192 L"-----------------------------------------------------------" [21]-[22] 
+    UNICODE_STRING AssemblyName;    //176->192 L"-----------------------------------------------------------" [21]-[22] 
     
     //Microsoft.Windows.Shell.notepad
     
@@ -243,40 +246,55 @@ typedef struct _BASE_SXS_CREATEPROCESS_MSG_2016 {//win 10 new
     USHORT UnknowFlags;//1 + 2
     BYTE Reserved4[8];//112->120
     UNICODE_STRING AssemblyDirectory;//120->136
-    UNICODE_STRING CacheSxsLanguageBuffer; //136->152 ===== [17]-[18]
+    UNICODE_STRING CultureFallBacks; //136->152 ===== [17]-[18]
     ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00)
     ULONG UnknowAppCompat;// [20] + 4 164->168  //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [应用程序清单请求最低权限级别来运行应用程序]
-    UNICODE_STRING AssemblyIdentity;    //168->184 L"-----------------------------------------------------------" [21]-[22] 
+    UNICODE_STRING AssemblyName;    //168->184 L"-----------------------------------------------------------" [21]-[22] 
     //Microsoft.Windows.Shell.notepad
 } BASE_SXS_CREATEPROCESS_MSG_2016, * PNEW_BASE_SXS_CREATEPROCESS_MSG_2016;
 
+#ifndef APPLICATION_USER_MODEL_ID_MAX_LENGTH
+#define APPLICATION_USER_MODEL_ID_MAX_LENGTH 130
+#endif // !APPLICATION_USER_MODEL_ID_MAX_LENGTH
 
 typedef struct _BASE_SXS_CREATEPROCESS_MSG {//win 10 new
     ULONG   Flags; //0
     ULONG   ProcessParameterFlags;//4
     //=====================================================
-    HANDLE FileHandle;//8
-    UNICODE_STRING Win32ImagePath;//16
-    UNICODE_STRING NtImagePath;//32;
-    PVOID AppCompatSxsData;//48
-    SIZE_T AppCompatSxsDataSize;//56
-    //========================================
-    BYTE Reserved1[8];//64
-    BYTE Reserved2[8];//72 Path???
-    PVOID ManifestAddress;//80
-    ULONG ManifestSize;//88
-    BYTE Reserved3[16];//96->112
-    BYTE Reserved4[8];//112->120
-    UNICODE_STRING AssemblyDirectory;//120->136
-    UNICODE_STRING CacheSxsLanguageBuffer; //136->152 ===== [17]-[18] // 
-    ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActCtx_RunLevel;//[19]-[20]/2   152->164 [ (00 00 00 00 | 01 00 00 00) *(_DWORD *)(Message + 156) = 0;
-    ULONG UnknowAppCompat;// [20] + 4 164->168
-    //01 00 00 00->ACTCTX_RUN_LEVEL_AS_INVOKER = 1 [应用程序清单请求最低权限级别来运行应用程序]
-    UNICODE_STRING AssemblyIdentity;    //168->184 L"-----------------------------------------------------------" [21]-[22] //Microsoft.Windows.Shell.notepad
-    BYTE Reserved7[8];//184->192 [23] Appcompat_CompatCache Related
-    PVOID Unknow_PackageActivationSxsInfo;//192-> [24] USHORT?
-    BYTE Reserved[256];//208 [25]
-} BASE_SXS_CREATEPROCESS_MSG, * PBASE_SXS_CREATEPROCESS_MSG;
+    union
+    {
+        struct
+        {
+            HANDLE FileHandle;//8
+            UNICODE_STRING Win32ImagePath;//16
+            UNICODE_STRING NtImagePath;//32;
+            PVOID ManifestOverrideOffset;//48 AppCompatSxsData
+            SIZE_T ManifestOverrideSize;//56 AppCompatSxsDataSize
+            //============================
+            PVOID PolicyOverrideOffset;//64
+            SIZE_T PolicyOverrideSize;//72 Path???
+            PVOID ManifestAddress;//80
+            ULONG ManifestSize;//88
+            //BYTE Reserved3[16];//96->112
+            //BYTE Reserved4[8];//112->120
+        };//Vista new Alternative
+        struct
+        {
+            BASE_MSG_SXS_STREAM Manifest;//8
+            BASE_MSG_SXS_STREAM Policy;//64
+            UNICODE_STRING AssemblyDirectory;//120->136
+        }; //SafeMode old Classic
+    };
+    //=================================================================
+    UNICODE_STRING CultureFallBacks; //136->152 ===== [17]-[18]
+    ACTIVATION_CONTEXT_RUN_LEVEL_INFORMATION ActivationContextRunLevel;//[19]-[20]/2   152->164 
+    SUPPORTED_OS_INFO SxsSupportOSInfo;// [20] + 4 164->168 [SwitchBackSupportOSInfo]
+    UNICODE_STRING AssemblyName;    //168->184 L"-----------------------------------------------------------" [21]-[22] //Microsoft.Windows.Shell.notepad
+    ULONGLONG SxsMaxVersionTested;//184->192 [23]
+    WCHAR ApplicationUserModelId[APPLICATION_USER_MODEL_ID_MAX_LENGTH];//192
+    ULONG ApplicationUserModelIdLength;//452
+} BASE_SXS_CREATEPROCESS_MSG, * PBASE_SXS_CREATEPROCESS_MSG; //0x1C8 = 456
+
 
 
 typedef struct _BASE_CREATE_PROCESS {
@@ -326,6 +344,5 @@ typedef struct _BASE_API_MSG
     }u;
 }BASE_API_MSG, * PBASE_API_MSG;
 
-
-
-
+typedef NTSTATUS(WINAPI* CsrCaptureMessageMultiUnicodeStringsInPlace_)(PCSR_CAPTURE_BUFFER* InOutCaptureBuffer, ULONG NumberOfStringsToCapture, const PUNICODE_STRING* StringsToCapture);
+typedef NTSTATUS(WINAPI* CsrClientCallServer_)(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  CaptureBuffer, ULONG ApiNumber, ULONG DataLength);

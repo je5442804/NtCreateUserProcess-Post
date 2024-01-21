@@ -14,26 +14,30 @@ void CustomSecureZeroMemory(IN OUT PVOID ptr, IN SIZE_T cnt)
 
 ULONG GetProcessParametersStructsLength(USHORT BuildNumber)
 {
-	ULONG ProcessParametersLength = sizeof(RTL_USER_PROCESS_PARAMETERS);
-	if (BuildNumber > 17763)
+	ULONG ProcessParametersLength = 0;
+	if (BuildNumber > 22000)
 	{
-		ProcessParametersLength = sizeof(RTL_USER_PROCESS_PARAMETERS);
+		ProcessParametersLength = sizeof(RTL_USER_PROCESS_PARAMETERS);// 0x448 1096
 	}
-	else if (16299 < BuildNumber && BuildNumber <= 17763)
+	else if (BuildNumber > 17763 && BuildNumber <= 22000)
 	{
-		ProcessParametersLength -= 0x20;
+		ProcessParametersLength = 0x440;// 1088
 	}
-	else if (7601 < BuildNumber && BuildNumber <= 16299)
+	else if (BuildNumber > 16299 && BuildNumber <= 17763)
 	{
-		ProcessParametersLength -= 0x30;
+		ProcessParametersLength = 0x420;
 	}
-	else if (7600 <= BuildNumber && BuildNumber <= 7601)
+	else if (BuildNumber > 7601 && BuildNumber <= 16299)
 	{
-		ProcessParametersLength -= 0x40;
+		ProcessParametersLength = 0x410;
 	}
-	else if (6000 <= BuildNumber && BuildNumber < 7600)
+	else if (BuildNumber >= 7600 && BuildNumber <= 7601)
 	{
-		ProcessParametersLength -= 0x48;
+		ProcessParametersLength = 0x400;
+	}
+	else if (BuildNumber >= 6000 && BuildNumber < 7600)
+	{
+		ProcessParametersLength = 0x3F8;//1016
 	}
 	wprintf(L"[+] OS: %d, ProcessParametersLength = 0x%x\n", BuildNumber, ProcessParametersLength);
 	return ProcessParametersLength;

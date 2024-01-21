@@ -6,11 +6,23 @@
 NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  CaptureBuffer, ULONG ApiNumber, ULONG DataLength)
 {
 	//Without Any SecureCheck is Unsafe but Faster!
-	ApiMessage->ApiNumber = ApiNumber & 0xEFFFFFFF;
+	ApiMessage->ApiNumber = ApiNumber & ~0x10000000;
 	ApiMessage->h.u2.ZeroInit = 0;
-	ApiMessage->h.u1.Length = (DataLength | (DataLength << 16)) + (((sizeof(CSR_API_MSG) - sizeof(ApiMessage->u)) << 16) | (FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h)));// +0x400018
-	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CaptureBuffer + CsrPortMemoryRemoteDelta);
+
+	// What if Length OverFlow?
+	// ApiMessage->h.u1.Length = (DataLength | (DataLength << 16)) + (((sizeof(CSR_API_MSG) - sizeof(ApiMessage->u)) << 16) | (FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h)));// +0x400018
+	ApiMessage->h.u1.s1.DataLength = (USHORT)DataLength + FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h);
+	ApiMessage->h.u1.s1.TotalLength = (USHORT)DataLength + sizeof(CSR_API_MSG) - sizeof(ApiMessage->u);
+	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((ULONG_PTR)CaptureBuffer + CsrPortMemoryRemoteDelta);
 	CaptureBuffer->FreeSpace = 0;//Mark the fact that we are done allocating space from the end of the capture buffer.
+
+	if (NtCurrentPeb()->IsProtectedProcess &&
+		CSR_APINUMBER_TO_SERVERDLLINDEX(ApiNumber) == CONSRV_SERVERDLL_INDEX || (ApiNumber & 0x10000000) && !NtCurrentPeb()->IsProtectedProcessLight)
+	{
+		ApiMessage->ReturnValue = STATUS_ACCESS_DENIED;
+		return STATUS_ACCESS_DENIED;
+	}
+
 	ULONG_PTR Pointer = 0;
 	ULONG CountPointers = CaptureBuffer->CountMessagePointers;
 	PULONG_PTR PointerOffsets = CaptureBuffer->MessagePointerOffsets;
@@ -21,21 +33,18 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 			PointerOffsets[-1] = Pointer - (ULONG_PTR)ApiMessage;
 		}
 	}
-	SIZE_T ALPC_Size = 952;
-	//tip: CsrPortHandle is related to OS version and (debug?)
+	SIZE_T CsrBufferMaxLength = 952;
 	NTSTATUS Status = NtAlpcSendWaitReceivePort(//in csrclientcallserver,since win 10 2004 but work well in win 7/2008/2012....
 		CsrPortHandle,
 		ALPC_MSGFLG_SYNC_REQUEST,
 		(PPORT_MESSAGE)ApiMessage,
 		0,
 		(PPORT_MESSAGE)ApiMessage,
-		&ALPC_Size,// [Optional] 
+		&CsrBufferMaxLength,// [Optional] 
 		0,
 		0
 	);
-	wprintf(L"[*] NtAlpcSendWaitReceivePort Status: 0x%08x\n", Status);
-	wprintf(L"[*] ApiMessage ReturnStatus: 0x%08x\n", ApiMessage->ReturnValue);
-	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CaptureBuffer - CsrPortMemoryRemoteDelta);
+	ApiMessage->CaptureBuffer = (PCSR_CAPTURE_BUFFER)((ULONG_PTR)CaptureBuffer - CsrPortMemoryRemoteDelta);
 	//
 	// Loop over all of the pointers to Port Memory within the message
 	// itself and convert them into client pointers.  Also, convert
@@ -95,8 +104,8 @@ ULONG CsrAllocateMessagePointer(PCSR_CAPTURE_BUFFER CaptureBuffer, ULONG Length,
 }
 void CsrCaptureMessageString(PCSR_CAPTURE_BUFFER CaptureBuffer, PWSTR String, ULONG Length, ULONG MaximumLength, PUNICODE_STRING CapturedString)
 {
-	CapturedString->Length = Length;
-	CapturedString->MaximumLength = CsrAllocateMessagePointer(CaptureBuffer, MaximumLength, (PVOID*)&CapturedString->Buffer);
+	CapturedString->Length = (USHORT)Length;
+	CapturedString->MaximumLength = (USHORT)CsrAllocateMessagePointer(CaptureBuffer, MaximumLength, (PVOID*)&CapturedString->Buffer);
 	Fastmemcpy(CapturedString->Buffer, String, MaximumLength);
 }
 NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutCaptureBuffer, ULONG NumberOfStringsToCapture, const PUNICODE_STRING* StringsToCapture)
@@ -123,11 +132,11 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 		//How to get CsrPortHeap Address?
 		//1: A HeapMemroy ID=2 ,type = Mapped:Commited, BaseAddress < NtCurrentPeb()->ProcessHeap(EZ)
 		//2: find with signcode 
-		PVOID CsrPortHeap = *(PVOID*)((char*)(NtCurrentPeb()->ProcessHeaps) + 8);//id = 2,so the second heap is +8
+		PVOID CsrPortHeap = *(PVOID*)((ULONG_PTR)(NtCurrentPeb()->ProcessHeaps) + 8);//id = 2,so the second heap is +8
 		//wprintf(L"(char)NtCurrentPeb()->ReadOnlyStaticServerData-(char*)NtCurrentPeb()->ReadOnlySharedMemoryBase = 0x%08x\n", (char*)NtCurrentPeb()->ReadOnlyStaticServerData - (NtCurrentPeb()->ReadOnlySharedMemoryBase));
-		CaptureBuffer = (PCSR_CAPTURE_BUFFER)((char*)CsrPortHeap + ((char*)NtCurrentPeb()->ReadOnlyStaticServerData - NtCurrentPeb()->ReadOnlySharedMemoryBase));//Thank you!
+		CaptureBuffer = (PCSR_CAPTURE_BUFFER)((ULONG_PTR)CsrPortHeap + ((ULONG_PTR)NtCurrentPeb()->ReadOnlyStaticServerData - (ULONG_PTR)NtCurrentPeb()->ReadOnlySharedMemoryBase));//Thank you!
 		if (!CaptureBuffer)
-			return 0xC0000017;
+			return STATUS_NO_MEMORY;
 		wprintf(L"[+] CaptureBuffer FakeAlloc = 0x%p\n", CaptureBuffer);
 		CaptureBuffer->Length = Length;
 		CaptureBuffer->CountMessagePointers = 0;
@@ -155,11 +164,12 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	BASE_API_MSG BaseAPIMessage = { 0 };
 	PBASE_CREATEPROCESS_MSG BaseCreateProcessMessage = &BaseAPIMessage.u.BaseCreateProcess;
 	PUNICODE_STRING CsrStringsToCapture[6] = { 0 };
-	CSR_API_NUMBER CSRAPINumber = 0x10000;
+	CSR_API_NUMBER CSRAPINumber = CSR_MAKE_API_NUMBER(BASESRV_SERVERDLL_INDEX, BasepCreateProcess);
 	ULONG DataLength = 0;
-	UNICODE_STRING CacheSxsLanguageBuffer = { 0 };
-	UNICODE_STRING AssemblyIdentity = { 0 };
+	UNICODE_STRING CultureFallBacks = { 0 };
+	UNICODE_STRING AssemblyName = { 0 };
 	USHORT ImageProcessorArchitecture = 0;
+	ULONG RtlUserProcessParametersFlags = RTL_USER_PROC_IMAGE_KEY_MISSING | RTL_USER_PROC_APP_MANIFEST_PRESENT | RTL_USER_PROC_PARAMS_NORMALIZED;
 
 	switch (SectionImageInfomation.Machine)
 	{
@@ -188,13 +198,13 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		break;
 	}
 
-	CacheSxsLanguageBuffer.Buffer = (PWSTR)L"zh-CN\0zh-Hans\0zh\0en-US\0en"; // zh-CN en-US
-	CacheSxsLanguageBuffer.Length = 54;//8?
-	CacheSxsLanguageBuffer.MaximumLength = 54;//8
+	CultureFallBacks.Buffer = (PWSTR)L"zh-CN\0zh-Hans\0zh\0en-US\0en"; // zh-CN en-US
+	CultureFallBacks.Length = 54;//8?
+	CultureFallBacks.MaximumLength = 54;//8
 
-	AssemblyIdentity.Buffer = (PWSTR)L"-----------------------------------------------------------";
-	AssemblyIdentity.Length = 118;
-	AssemblyIdentity.MaximumLength = 120;
+	AssemblyName.Buffer = (PWSTR)L"-----------------------------------------------------------";
+	AssemblyName.Length = 118;
+	AssemblyName.MaximumLength = 120;
 
 	BaseCreateProcessMessage->ProcessHandle = hProcess;
 	BaseCreateProcessMessage->ThreadHandle = hThread;
@@ -205,22 +215,22 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	wprintf(L"OS: %d\n", OSBuildNumber);
 	if (OSBuildNumber >= 18985)//19041 ? 19000
 	{
-		wprintf(L"[*] Windows 10 2004+ | Windows Server 2022\n");
+		wprintf(L"[*] Windows 10 2004+ | Windows 11 | Windows Server 2022\n");
 		CustomSecureZeroMemory(&BaseCreateProcessMessage->u.win2022.Sxs, sizeof((BaseCreateProcessMessage->u).win2022.Sxs));
 		BaseCreateProcessMessage->u.win2022.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2022.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
 		BaseCreateProcessMessage->u.win2022.Sxs.ManifestSize = CreateInfo.SuccessState.ManifestSize;
-		BaseCreateProcessMessage->u.win2022.Sxs.Flags = 0x40;
-		BaseCreateProcessMessage->u.win2022.Sxs.ProcessParameterFlags = 0x6001;
+		BaseCreateProcessMessage->u.win2022.Sxs.Flags = BASE_MSG_SXS_ALTERNATIVE_MODE;
+		BaseCreateProcessMessage->u.win2022.Sxs.ProcessParameterFlags = RtlUserProcessParametersFlags;
 		BaseCreateProcessMessage->u.win2022.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2022.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->u.win2022.ProcessorArchitecture = ImageProcessorArchitecture;
 		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2022.Sxs.Win32ImagePath = Win32ImagePath);
 		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2022.Sxs.NtImagePath = NtImagePath);
-		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2022.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
-		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2022.Sxs.AssemblyIdentity = AssemblyIdentity);
+		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2022.Sxs.CultureFallBacks = CultureFallBacks);
+		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2022.Sxs.AssemblyName = AssemblyName);
 
-		CSRAPINumber = 0x1001D;//since 2004
+		CSRAPINumber = CSR_MAKE_API_NUMBER(BASESRV_SERVERDLL_INDEX, BasepCreateProcess2);//since 2004
 		DataLength = sizeof(*BaseCreateProcessMessage);//536 = 456(0x1c8) + 80 
 	}
 	else if (OSBuildNumber >= 18214 || (OSBuildNumber <= 9600 && OSBuildNumber >= 8423) || (OSBuildNumber <= 7601 && OSBuildNumber >= 7600))//18362 | 9200
@@ -232,15 +242,15 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->u.win2012.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2012.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
 		BaseCreateProcessMessage->u.win2012.Sxs.ManifestSize = CreateInfo.SuccessState.ManifestSize;
-		BaseCreateProcessMessage->u.win2012.Sxs.Flags = 0x40;
-		BaseCreateProcessMessage->u.win2012.Sxs.ProcessParameterFlags = 0x6001;
+		BaseCreateProcessMessage->u.win2012.Sxs.Flags = BASE_MSG_SXS_ALTERNATIVE_MODE;
+		BaseCreateProcessMessage->u.win2012.Sxs.ProcessParameterFlags = RtlUserProcessParametersFlags;
 		BaseCreateProcessMessage->u.win2012.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2012.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->u.win2012.ProcessorArchitecture = ImageProcessorArchitecture;
 		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2012.Sxs.Win32ImagePath = Win32ImagePath);
 		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2012.Sxs.NtImagePath = NtImagePath);
-		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2012.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
-		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2012.Sxs.AssemblyIdentity = AssemblyIdentity);
+		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2012.Sxs.CultureFallBacks = CultureFallBacks);
+		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2012.Sxs.AssemblyName = AssemblyName);
 
 		DataLength = sizeof((BaseCreateProcessMessage->u).win2012.Sxs) + 80;//272 = 192 + 80
 	}
@@ -254,15 +264,15 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		BaseCreateProcessMessage->u.win2016.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2016.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
 		BaseCreateProcessMessage->u.win2016.Sxs.ManifestSize = CreateInfo.SuccessState.ManifestSize;
-		BaseCreateProcessMessage->u.win2016.Sxs.Flags = 0x40;
-		BaseCreateProcessMessage->u.win2016.Sxs.ProcessParameterFlags = 0x6001;
+		BaseCreateProcessMessage->u.win2016.Sxs.Flags = BASE_MSG_SXS_ALTERNATIVE_MODE;
+		BaseCreateProcessMessage->u.win2016.Sxs.ProcessParameterFlags = RtlUserProcessParametersFlags;
 		BaseCreateProcessMessage->u.win2016.PebAddressNative = CreateInfo.SuccessState.PebAddressNative;
 		BaseCreateProcessMessage->u.win2016.PebAddressWow64 = CreateInfo.SuccessState.PebAddressWow64;
 		BaseCreateProcessMessage->u.win2016.ProcessorArchitecture = ImageProcessorArchitecture;
 		CsrStringsToCapture[0] = &(BaseCreateProcessMessage->u.win2016.Sxs.Win32ImagePath = Win32ImagePath);
 		CsrStringsToCapture[1] = &(BaseCreateProcessMessage->u.win2016.Sxs.NtImagePath = NtImagePath);
-		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2016.Sxs.CacheSxsLanguageBuffer = CacheSxsLanguageBuffer);
-		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2016.Sxs.AssemblyIdentity = AssemblyIdentity);
+		CsrStringsToCapture[2] = &(BaseCreateProcessMessage->u.win2016.Sxs.CultureFallBacks = CultureFallBacks);
+		CsrStringsToCapture[3] = &(BaseCreateProcessMessage->u.win2016.Sxs.AssemblyName = AssemblyName);
 
 		DataLength = sizeof((BaseCreateProcessMessage->u).win2016.Sxs) + 80;//264 = 184 + 80
 	}
@@ -275,10 +285,11 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	{
 		wprintf(L"BaseCreateProcessMessage->Sxs.Win32ImagePath: %ls\n", CsrStringsToCapture[0]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.NtImagePath: %ls\n", CsrStringsToCapture[1]->Buffer);
-		wprintf(L"BaseCreateProcessMessage->Sxs.CacheSxsLanguageBuffer: %ls\n", CsrStringsToCapture[2]->Buffer);
-		wprintf(L"BaseCreateProcessMessage->Sxs.AssemblyIdentity: %ls\n", CsrStringsToCapture[3]->Buffer);
-		//DbgPrint( "*** CSRSS: CaptureBuffer outside of ClientView\n" );
-		//CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xC000000D)
+		wprintf(L"BaseCreateProcessMessage->Sxs.CultureFallBacks: %ls\n", CsrStringsToCapture[2]->Buffer);
+		wprintf(L"BaseCreateProcessMessage->Sxs.AssemblyName: %ls\n", CsrStringsToCapture[3]->Buffer);
+		// DbgPrint( "*** CSRSS: CaptureBuffer outside of ClientView\n" );
+		// CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xC000000D)
+		
 		wprintf(L"[+] CsrCaptureMessageMultiUnicodeStringsInPlace: 0x%08x\n", CsrCaptureMessageMultiUnicodeStringsInPlace(&CaptureBuffer, 4, CsrStringsToCapture));
 		return CsrClientCallServer((PCSR_API_MSG)&BaseAPIMessage, CaptureBuffer, CSRAPINumber, DataLength);
 	}

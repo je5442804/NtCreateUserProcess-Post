@@ -20,6 +20,7 @@ void helpinfo()
 int wmain(int argc, wchar_t* argv[])
 {
 	LPCWSTR ImageName = NULL;
+	BOOLEAN EnableDebugOutput = FALSE;
 	int Interact = 0;
 	while ((argc > 1) && (argv[1][0] == '-'))
 	{
@@ -29,6 +30,12 @@ int wmain(int argc, wchar_t* argv[])
 		case 'H':
 			helpinfo();
 			return 0;
+		case 'd':
+		case 'D':
+			++argv;
+			--argc;
+			EnableDebugOutput = TRUE;
+			break;
 		case 'c':
 		case 'C':
 			++argv;
@@ -108,6 +115,7 @@ int wmain(int argc, wchar_t* argv[])
 	UNICODE_STRING Win32ImagePath = { 0 };
 	UNICODE_STRING CommandLine = { 0 };
 
+
 	Status = NtOpenProcess(&ParentProcessHandle, PROCESS_ALL_ACCESS, &ObjectAttributes, &ClientId);
 	ClientId = { 0 };
 	if (!NT_SUCCESS(Status))
@@ -132,20 +140,20 @@ int wmain(int argc, wchar_t* argv[])
 		wcscat_s(NtImageName, L"\\??\\");
 		wcscat_s(NtImageName, ImageName);
 		NtImagePath.Buffer = NtImageName;
-		NtImagePath.Length = sizeof(WCHAR) * lstrlenW(NtImageName);
-		NtImagePath.MaximumLength = sizeof(WCHAR) * lstrlenW(NtImageName) + sizeof(UNICODE_NULL);
+		NtImagePath.Length = (USHORT)(sizeof(WCHAR) * lstrlenW(NtImageName));
+		NtImagePath.MaximumLength = NtImagePath.Length + sizeof(UNICODE_NULL);
 
 		Win32ImagePath.Buffer = (PWSTR)ImageName;
-		Win32ImagePath.Length = sizeof(WCHAR) * lstrlenW(ImageName);
-		Win32ImagePath.MaximumLength = sizeof(WCHAR) * lstrlenW(ImageName) + sizeof(UNICODE_NULL);
+		Win32ImagePath.Length = (USHORT)(sizeof(WCHAR) * lstrlenW(ImageName));
+		Win32ImagePath.MaximumLength = Win32ImagePath.Length + sizeof(UNICODE_NULL);
 
 		WCHAR cmdline[MAX_PATH] = { 0 };
 		wcscat_s(cmdline, L"\"");// required while blankspace exist =.=
 		wcscat_s(cmdline, ImageName);
 		wcscat_s(cmdline, L"\"");
 		CommandLine.Buffer = (PWSTR)cmdline;
-		CommandLine.Length = sizeof(WCHAR) * lstrlenW(cmdline);
-		CommandLine.MaximumLength = sizeof(WCHAR) * lstrlenW(cmdline) + sizeof(UNICODE_NULL);
+		CommandLine.Length = (USHORT)(sizeof(WCHAR) * lstrlenW(cmdline));
+		CommandLine.MaximumLength = CommandLine.Length + sizeof(UNICODE_NULL);
 	}
 	else
 	{
@@ -173,9 +181,9 @@ int wmain(int argc, wchar_t* argv[])
 	ProcessParametersLength += (MAX_PATH * sizeof(WCHAR));//CurrentDirectory
 	ProcessParametersLength += ALIGN(OwnParameters->DesktopInfo.MaximumLength, sizeof(ULONG_PTR)); //DesktopInfo 
 	// ProcessParametersLength += ALIGN(OwnParameters->ShellInfo.MaximumLength, sizeof(ULONG_PTR)); //ShellInfo 
-	ProcessParametersLength += ALIGN(Win32ImagePath.Length + sizeof(WCHAR), sizeof(ULONG_PTR)); //ImagePathName
+	ProcessParametersLength += ALIGN(Win32ImagePath.MaximumLength, sizeof(ULONG_PTR)); //ImagePathName
 	ProcessParametersLength += ALIGN(Win32ImagePath.MaximumLength, sizeof(ULONG_PTR)); //WindowTitle = ImagePathName
-	ProcessParametersLength += ALIGN(CommandLine.Length + sizeof(WCHAR), sizeof(ULONG_PTR));//CommandLine
+	ProcessParametersLength += ALIGN(CommandLine.MaximumLength, sizeof(ULONG_PTR));//CommandLine
 
 	// ProcessParametersLength += ALIGN(OwnParameters->RuntimeData.MaximumLength, sizeof(ULONG_PTR)); //RuntimeData 
 	ProcessParametersLength += ALIGN(OwnParameters->DllPath.MaximumLength, sizeof(ULONG_PTR));//DllPath NtCurrentProcess()
@@ -189,7 +197,7 @@ int wmain(int argc, wchar_t* argv[])
 	ProcessParameters->Length = ProcessParametersLength;
 	ProcessParameters->MaximumLength = ProcessParametersLength;
 
-	ProcessParameters->Flags = RTL_USER_PROCESS_PARAMETERS_NORMALIZED;
+	ProcessParameters->Flags = RTL_USER_PROC_IMAGE_KEY_MISSING | RTL_USER_PROC_APP_MANIFEST_PRESENT | RTL_USER_PROC_PARAMS_NORMALIZED;
 	ProcessParameters->ImagePathName = Win32ImagePath;
 	ProcessParameters->CommandLine = CommandLine;
 	ProcessParameters->DllPath = OwnParameters->DllPath;//old
@@ -203,19 +211,24 @@ int wmain(int argc, wchar_t* argv[])
 	ProcessParameters->EnvironmentVersion = OwnParameters->EnvironmentVersion; //EnvironmentVersion should be zero?
 	//==================================================================================
 	ProcessParameters->ProcessGroupId = NtCurrentPeb()->ProcessParameters->ProcessGroupId; //dwCreationFlags & CREATE_NEW_PROCESS_GROUP == 0
-
+	
 	// 7601 and below OS std io are not hold with conhost.exe directly
 	if (Interact == 0)
 	{
 		wprintf(L"[*] CREATE_NEW_CONSOLE...\n");
-		ProcessParameters->ConsoleHandle = NULL;//(HANDLE)-2i64 = CONSOLE_NEW_CONSOLE
+
+		//
+		// ProcessParameters->ConsoleHandle = NULL;
+		// ProcessParameters->ConsoleHandle = HANDLE_CREATE_NO_WINDOW; [Console Process: cmd.exe, powershell.exe]
+		//
+		ProcessParameters->ConsoleHandle = HANDLE_CREATE_NEW_CONSOLE;//(HANDLE)-2i64 = CONSOLE_NEW_CONSOLE HANDLE_CREATE_NEW_CONSOLE
 	}
 	else
 	{
 		ProcessParameters->ConsoleHandle = !ConhostConsoleHandle || OSBuildNumber <= 7601 ? OwnParameters->ConsoleHandle : ConhostConsoleHandle;
 	}
 
-	//[bInheritHandles == TRUE <->ProcessFlags & 4 (PROCESS_CREATE_FLAGS_INHERIT_HANDLES) ...]
+	// [bInheritHandles == TRUE <->ProcessFlags & 4 (PROCESS_CREATE_FLAGS_INHERIT_HANDLES) ...]
 	// 
 	// if ParentProcessHandle != NULL, need to set for StdHandle Mode 2 ???
 	// I don't know...
@@ -272,19 +285,21 @@ int wmain(int argc, wchar_t* argv[])
 		if (!ParentProcessHandle)// none of CREATE_NO_WINDOW CREATE_NEW_CONSOLE DETACHED_PROCESS
 		{
 			wprintf(L"[*] StdHandle Mode 1\n");
-			StdHandle.Flags = StdHandle.Flags & -0x20 | PsRequestDuplicate;
+			StdHandle.StdHandleState = PsRequestDuplicate;
+			StdHandle.PseudoHandleMask = 0;
 		}
 		else//StdHandle with ParentProcessHandle is supported since...
 		{
 			wprintf(L"[*] StdHandle Mode 2, not work...\n");
-			StdHandle.Flags = StdHandle.Flags & -0x20 | PsAlwaysDuplicate;
+			StdHandle.StdHandleState = PsAlwaysDuplicate;
+			StdHandle.PseudoHandleMask = 0;
 		}
 		if (OSBuildNumber <= 7601)
 		{
 			StdHandle.PseudoHandleMask |= CONSOLE_HANDLE(ProcessParameters->StandardInput) ? PS_STD_INPUT_HANDLE : 0;
 			StdHandle.PseudoHandleMask |= CONSOLE_HANDLE(ProcessParameters->StandardOutput) ? PS_STD_OUTPUT_HANDLE : 0;
 			StdHandle.PseudoHandleMask |= CONSOLE_HANDLE(ProcessParameters->StandardError) ? PS_STD_ERROR_HANDLE : 0;
-			wprintf(L"[*] Old StdHandle.PseudoHandleMask Set!\n");
+			wprintf(L"[*] Old StdHandle.HandleMask Set!\n");
 		}
 		AttributeList.Attributes[AttributeCount].Attribute = PS_ATTRIBUTE_STD_HANDLE_INFO;
 		AttributeList.Attributes[AttributeCount].Size = sizeof(PS_STD_HANDLE_INFO);
@@ -298,33 +313,41 @@ int wmain(int argc, wchar_t* argv[])
 
 	Status = NtCreateUserProcess(&hProcess, &hThread, MAXIMUM_ALLOWED, MAXIMUM_ALLOWED, NULL, NULL, ProcessFlags, THREAD_CREATE_FLAGS_CREATE_SUSPENDED, ProcessParameters, &CreateInfo, &AttributeList);
 	wprintf(L"[*] NtCreateUserProcess: 0x%08x\n", Status);
-	if (!NT_SUCCESS(Status))
-		return Status;
-#ifdef OUTPUT
-	CreateInfoOutPut(CreateInfo);
-	SectionImageInfomationOutPut(SectionImageInfomation);
-#endif
 
-	wprintf(L"[*] PID=%lld, TID=%lld\n", (ULONGLONG)ClientId.UniqueProcess, (ULONGLONG)ClientId.UniqueThread);
-	wprintf(L"[*] CustomCallCsrss: 0x%08x\n", CallCsrss(hProcess, hThread, CreateInfo, Win32ImagePath, NtImagePath, ClientId, SectionImageInfomation));
-
-	wprintf(L"[*] PebAddress NtReadVirtualMemory: 0x%08x\n", NtReadVirtualMemory(hProcess, (PVOID)CreateInfo.SuccessState.PebAddressNative, &peb2, sizeof(peb2), 0));
-	wprintf(L"[*] peb2.ActivationContextData 0x%p\n", peb2.ActivationContextData);
-	wprintf(L"[*] peb2.SystemDefaultActivationContextData 0x%p\n", peb2.SystemDefaultActivationContextData);
-	wprintf(L"[*] NtResumeThread: 0x%08x\n", NtResumeThread(hThread, 0));
-
-	if (Interact != 0)
+	if (EnableDebugOutput)
 	{
-		//For test only, there is no need to waitfor handle in fact.
-		NtWaitForSingleObject(hThread, FALSE, NULL);
-		wprintf(L"[!] New Process Exited!");
-		Status = NtQueryInformationProcess(hProcess, ProcessBasicInformation, &ProcessBasicInfo, sizeof(PROCESS_BASIC_INFORMATION), &ReturnLength);
-		//Status = NtQueryInformationThread(hThread, ThreadBasicInformation, &ThreadBasicInfo, sizeof(THREAD_BASIC_INFORMATION), &ReturnLength);
+		CreateInfoOutPut(CreateInfo);
+		SectionImageInfomationOutPut(SectionImageInfomation);
+	}
+
+	if (NT_SUCCESS(Status))
+	{
+		wprintf(L"[*] PID=%lld, TID=%lld\n", (ULONGLONG)ClientId.UniqueProcess, (ULONGLONG)ClientId.UniqueThread);
+		wprintf(L"[*] CustomCallCsrss: 0x%08x\n", CallCsrss(hProcess, hThread, CreateInfo, Win32ImagePath, NtImagePath, ClientId, SectionImageInfomation));
+
+		Status = NtReadVirtualMemory(hProcess, (PVOID)CreateInfo.SuccessState.PebAddressNative, &peb2, sizeof(peb2), 0);
 		if (NT_SUCCESS(Status))
 		{
-			wprintf(L" Process ExitStatus: 0x%08lx\n", ProcessBasicInfo.ExitStatus);
+			wprintf(L"[*] ActivationContextData 0x%p\n", peb2.ActivationContextData);
+			wprintf(L"[*] SystemDefaultActivationContextData 0x%p\n", peb2.SystemDefaultActivationContextData);
+		}
+
+		wprintf(L"[*] NtResumeThread: 0x%08x\n", NtResumeThread(hThread, 0));
+
+		if (Interact != 0)
+		{
+			//For test only, there is no need to waitfor handle in fact.
+			NtWaitForSingleObject(hThread, FALSE, NULL);
+			wprintf(L"[!] New Process Exited!");
+			Status = NtQueryInformationProcess(hProcess, ProcessBasicInformation, &ProcessBasicInfo, sizeof(PROCESS_BASIC_INFORMATION), &ReturnLength);
+			//Status = NtQueryInformationThread(hThread, ThreadBasicInformation, &ThreadBasicInfo, sizeof(THREAD_BASIC_INFORMATION), &ReturnLength);
+			if (NT_SUCCESS(Status))
+			{
+				wprintf(L" ExitStatus: 0x%08lx\n", ProcessBasicInfo.ExitStatus);
+			}
 		}
 	}
+
 	if (ParentProcessHandle)
 	{
 		NtClose(ParentProcessHandle);

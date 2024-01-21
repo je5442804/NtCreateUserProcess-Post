@@ -19,10 +19,34 @@
 #define SW3_RVA2VA(Type, DllBase, Rva) (Type)((ULONG_PTR) DllBase + Rva)
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
 
-#define RTL_USER_PROCESS_PARAMETERS_NORMALIZED              0x01
-#define HANDLE_DETACHED_PROCESS     ((HANDLE)-1)
-#define HANDLE_CREATE_NEW_CONSOLE   ((HANDLE)-2)
-#define HANDLE_CREATE_NO_WINDOW     ((HANDLE)-3)
+#define RTL_USER_PROC_PARAMS_NORMALIZED 0x00000001
+#define RTL_USER_PROC_PROFILE_USER 0x00000002
+#define RTL_USER_PROC_PROFILE_KERNEL 0x00000004
+#define RTL_USER_PROC_PROFILE_SERVER 0x00000008
+#define RTL_USER_PROC_RESERVE_1MB 0x00000020
+#define RTL_USER_PROC_RESERVE_16MB 0x00000040
+#define RTL_USER_PROC_CASE_SENSITIVE 0x00000080
+#define RTL_USER_PROC_DISABLE_HEAP_DECOMMIT 0x00000100
+#define RTL_USER_PROC_DLL_REDIRECTION_LOCAL 0x00001000
+#define RTL_USER_PROC_APP_MANIFEST_PRESENT 0x00002000
+#define RTL_USER_PROC_IMAGE_KEY_MISSING 0x00004000
+#define RTL_USER_PROC_USE_DOTLOCAL 0x00008000 // uncorrected
+
+#define RTL_USER_PROC_OPTIN_PROCESS 0x00020000
+
+//
+//https://github.com/diversenok/NtUtilsLibrary
+//
+
+#define RTL_USER_PROC_SESSION_OWNER 0x00040000
+#define RTL_USER_PROC_HANDLE_USER_CALLBACK_EXCEPTIONS 0x00080000
+#define RTL_USER_PROC_PROTECTED_PROCESS 0x00400000
+#define RTL_USER_PROC_APPX_GLOBAL_OVERRIDE 0x08000000 //uncorrected
+#define RTL_USER_PROC_SECURE_PROCESS 0x80000000
+
+#define HANDLE_DETACHED_PROCESS     ((HANDLE)-1) // DETACHED_PROCESS   = 0x00000008
+#define HANDLE_CREATE_NEW_CONSOLE   ((HANDLE)-2) // CREATE_NEW_CONSOLE = 0x00000010
+#define HANDLE_CREATE_NO_WINDOW     ((HANDLE)-3) // CREATE_NO_WINDOW   = 0x08000000
 
 #define IMAGE_FILE_MACHINE_HYBRID_X86        0x3A64  // Hybrid: x86
 
@@ -188,6 +212,21 @@ typedef struct _IO_STATUS_BLOCK
 	};
 	ULONG_PTR Information;
 } IO_STATUS_BLOCK, * PIO_STATUS_BLOCK;
+
+typedef enum _NT_PRODUCT_TYPE
+{
+	NtProductWinNt = 1,
+	NtProductLanManNt,
+	NtProductServer
+} NT_PRODUCT_TYPE, * PNT_PRODUCT_TYPE;
+
+typedef struct _KSYSTEM_TIME
+{
+	ULONG LowPart;
+	LONG High1Time;
+	LONG High2Time;
+} KSYSTEM_TIME, * PKSYSTEM_TIME;
+
 
 typedef struct _CLIENT_ID
 {
@@ -1422,6 +1461,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS
 	UNICODE_STRING HeapPartitionName; // 19H1
 	ULONG_PTR DefaultThreadpoolCpuSetMasks;
 	ULONG DefaultThreadpoolCpuSetMaskCount;
+	ULONG DefaultThreadpoolThreadMaximum;
 	ULONG HeapMemoryTypeMask; // WIN11
 } RTL_USER_PROCESS_PARAMETERS, * PRTL_USER_PROCESS_PARAMETERS;
 // begin_rev
@@ -1693,14 +1733,101 @@ typedef struct _PEB_LDR_DATA
 	BOOLEAN ShutdownInProgress;
 	HANDLE ShutdownThreadId;
 } PEB_LDR_DATA, * PPEB_LDR_DATA;
+
+typedef struct _ASSEMBLY_STORAGE_MAP_ENTRY
+{
+	ULONG Flags;
+	UNICODE_STRING DosPath;
+	HANDLE Handle;
+} ASSEMBLY_STORAGE_MAP_ENTRY, * PASSEMBLY_STORAGE_MAP_ENTRY;
+
+#define ASSEMBLY_STORAGE_MAP_ASSEMBLY_ARRAY_IS_HEAP_ALLOCATED 0x00000001
+
+typedef struct _ASSEMBLY_STORAGE_MAP
+{
+	ULONG Flags;
+	ULONG AssemblyCount;
+	PASSEMBLY_STORAGE_MAP_ENTRY* AssemblyArray;
+} ASSEMBLY_STORAGE_MAP, * PASSEMBLY_STORAGE_MAP;
+
+typedef struct _API_SET_NAMESPACE
+{
+	ULONG Version;
+	ULONG Size;
+	ULONG Flags;
+	ULONG Count;
+	ULONG EntryOffset;
+	ULONG HashOffset;
+	ULONG HashFactor;
+} API_SET_NAMESPACE, * PAPI_SET_NAMESPACE;
+
+// private
+typedef struct _API_SET_HASH_ENTRY
+{
+	ULONG Hash;
+	ULONG Index;
+} API_SET_HASH_ENTRY, * PAPI_SET_HASH_ENTRY;
+
+// private
+typedef struct _API_SET_NAMESPACE_ENTRY
+{
+	ULONG Flags;
+	ULONG NameOffset;
+	ULONG NameLength;
+	ULONG HashedLength;
+	ULONG ValueOffset;
+	ULONG ValueCount;
+} API_SET_NAMESPACE_ENTRY, * PAPI_SET_NAMESPACE_ENTRY;
+
+typedef struct _SILO_USER_SHARED_DATA
+{
+	ULONG ServiceSessionId;
+	ULONG ActiveConsoleId;
+	LONGLONG ConsoleSessionForegroundProcessId;
+	NT_PRODUCT_TYPE NtProductType;
+	ULONG SuiteMask;
+	ULONG SharedUserSessionId; // since RS2
+	BOOLEAN IsMultiSessionSku;
+	WCHAR NtSystemRoot[260];
+	USHORT UserModeGlobalLogger[16];
+	ULONG TimeZoneId; // since 21H2
+	LONG TimeZoneBiasStamp;
+	KSYSTEM_TIME TimeZoneBias;
+	LARGE_INTEGER TimeZoneBiasEffectiveStart;
+	LARGE_INTEGER TimeZoneBiasEffectiveEnd;
+} SILO_USER_SHARED_DATA, * PSILO_USER_SHARED_DATA;
+
+typedef struct _TELEMETRY_COVERAGE_HEADER
+{
+	UCHAR MajorVersion;
+	UCHAR MinorVersion;
+	struct
+	{
+		USHORT TracingEnabled : 1;
+		USHORT Reserved1 : 15;
+	};
+	ULONG HashTableEntries;
+	ULONG HashIndexMask;
+	ULONG TableUpdateVersion;
+	ULONG TableSizeInBytes;
+	ULONG LastResetTick;
+	ULONG ResetRound;
+	ULONG Reserved2;
+	ULONG RecordedCount;
+	ULONG Reserved3[4];
+	ULONG HashTable[ANYSIZE_ARRAY];
+} TELEMETRY_COVERAGE_HEADER, * PTELEMETRY_COVERAGE_HEADER;
+
+typedef struct _LEAP_SECOND_DATA* PLEAP_SECOND_DATA;
+
 typedef struct _PEB
 {
 	BOOLEAN InheritedAddressSpace;
 	BOOLEAN ReadImageFileExecOptions;
-	BOOLEAN BeingDebugged;//0x02
+	BOOLEAN BeingDebugged;
 	union
 	{
-		BOOLEAN BitField;//0x03
+		BOOLEAN BitField;
 		struct
 		{
 			BOOLEAN ImageUsesLargePages : 1;
@@ -1711,19 +1838,20 @@ typedef struct _PEB
 			BOOLEAN IsAppContainer : 1;
 			BOOLEAN IsProtectedProcessLight : 1;
 			BOOLEAN IsLongPathAwareProcess : 1;
-		} s1;
-	} u1;
+		};
+	};
 
-	HANDLE Mutant;//0x08
+	HANDLE Mutant;
 
-	PVOID ImageBaseAddress;//0x08+0x08 = 0x10 = 16
-	PSW3_PEB_LDR_DATA Ldr; //PPEB_LDR_DATA
+	PVOID ImageBaseAddress;
+	PSW3_PEB_LDR_DATA Ldr;
 	PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
 	PVOID SubSystemData;
 	PVOID ProcessHeap;
 	PRTL_CRITICAL_SECTION FastPebLock;
-	PVOID AtlThunkSListPtr;
+	PSLIST_HEADER AtlThunkSListPtr;
 	PVOID IFEOKey;
+
 	union
 	{
 		ULONG CrossProcessFlags;
@@ -1736,23 +1864,24 @@ typedef struct _PEB
 			ULONG ProcessUsingFTH : 1;
 			ULONG ProcessPreviouslyThrottled : 1;
 			ULONG ProcessCurrentlyThrottled : 1;
-			ULONG ReservedBits0 : 25;
-		} s2;
-	} u2;
+			ULONG ProcessImagesHotPatched : 1; // REDSTONE5
+			ULONG ReservedBits0 : 24;
+		};
+	};
 	union
 	{
 		PVOID KernelCallbackTable;
 		PVOID UserSharedInfoPtr;
-	} u3;
-	ULONG SystemReserved[1];
+	};
+	ULONG SystemReserved;
 	ULONG AtlThunkSListPtr32;
-	PVOID ApiSetMap;
+	PAPI_SET_NAMESPACE ApiSetMap;
 	ULONG TlsExpansionCounter;
 	PVOID TlsBitmap;
-	ULONG TlsBitmapBits[2];
+	ULONG TlsBitmapBits[2]; // TLS_MINIMUM_AVAILABLE
 
 	PVOID ReadOnlySharedMemoryBase;
-	PVOID SharedData; // HotpatchInformation
+	PSILO_USER_SHARED_DATA SharedData; // HotpatchInformation
 	PVOID* ReadOnlyStaticServerData;
 
 	PVOID AnsiCodePageData; // PCPTABLEINFO
@@ -1762,7 +1891,7 @@ typedef struct _PEB
 	ULONG NumberOfProcessors;
 	ULONG NtGlobalFlag;
 
-	LARGE_INTEGER CriticalSectionTimeout;
+	ULARGE_INTEGER CriticalSectionTimeout;
 	SIZE_T HeapSegmentReserve;
 	SIZE_T HeapSegmentCommit;
 	SIZE_T HeapDeCommitTotalFreeThreshold;
@@ -1770,9 +1899,9 @@ typedef struct _PEB
 
 	ULONG NumberOfHeaps;
 	ULONG MaximumNumberOfHeaps;
-	PVOID* ProcessHeaps; // PHEAP Allheap
+	PVOID* ProcessHeaps; // PHEAP
 
-	PVOID GdiSharedHandleTable;
+	PVOID GdiSharedHandleTable; // PGDI_SHARED_MEMORY
 	PVOID ProcessStarterHelper;
 	ULONG GdiDCAttributeList;
 
@@ -1786,38 +1915,51 @@ typedef struct _PEB
 	ULONG ImageSubsystem;
 	ULONG ImageSubsystemMajorVersion;
 	ULONG ImageSubsystemMinorVersion;
-	ULONG_PTR ActiveProcessAffinityMask;
+	KAFFINITY ActiveProcessAffinityMask;
 	GDI_HANDLE_BUFFER GdiHandleBuffer;
 	PVOID PostProcessInitRoutine;
 
 	PVOID TlsExpansionBitmap;
-	ULONG TlsExpansionBitmapBits[32];
+	ULONG TlsExpansionBitmapBits[32]; // TLS_EXPANSION_SLOTS
 
 	ULONG SessionId;
 
-	ULARGE_INTEGER AppCompatFlags;
+	ULARGE_INTEGER AppCompatFlags; // KACF_*
 	ULARGE_INTEGER AppCompatFlagsUser;
 	PVOID pShimData;
 	PVOID AppCompatInfo; // APPCOMPAT_EXE_DATA
 
 	UNICODE_STRING CSDVersion;
 
-	PVOID ActivationContextData; // ACTIVATION_CONTEXT_DATA
-	PVOID ProcessAssemblyStorageMap; // ASSEMBLY_STORAGE_MAP
-	PVOID SystemDefaultActivationContextData; // ACTIVATION_CONTEXT_DATA
-	PVOID SystemAssemblyStorageMap; // ASSEMBLY_STORAGE_MAP
+	PVOID ActivationContextData;// PACTIVATION_CONTEXT_DATA
+	PASSEMBLY_STORAGE_MAP ProcessAssemblyStorageMap;
+	PVOID SystemDefaultActivationContextData;
+	PASSEMBLY_STORAGE_MAP SystemAssemblyStorageMap;
 
 	SIZE_T MinimumStackCommit;
 
-	PVOID* FlsCallback;
-	LIST_ENTRY FlsListHead;
-	PVOID FlsBitmap;
-	ULONG FlsBitmapBits[FLS_MAXIMUM_AVAILABLE / (sizeof(ULONG) * 8)];
-	ULONG FlsHighIndex;
+	PVOID SparePointers[2]; // 19H1 (previously FlsCallback to FlsHighIndex)
+	PVOID PatchLoaderData;
+	PVOID ChpeV2ProcessInfo; // _CHPEV2_PROCESS_INFO
+
+	ULONG AppModelFeatureState;
+	ULONG SpareUlongs[2];
+
+	USHORT ActiveCodePage;
+	USHORT OemCodePage;
+	USHORT UseCaseMapping;
+	USHORT UnusedNlsField;
 
 	PVOID WerRegistrationData;
 	PVOID WerShipAssertPtr;
-	PVOID pUnused; // pContextData
+
+	union
+	{
+		PVOID pContextData; // WIN7
+		PVOID pUnused; // WIN10
+		PVOID EcCodeBitMap; // WIN11
+	};
+
 	PVOID pImageHeaderHash;
 	union
 	{
@@ -1828,18 +1970,18 @@ typedef struct _PEB
 			ULONG CritSecTracingEnabled : 1;
 			ULONG LibLoaderTracingEnabled : 1;
 			ULONG SpareTracingBits : 29;
-		} s3;
-	} u4;
+		};
+	};
 	ULONGLONG CsrServerReadOnlySharedMemoryBase;
 	PRTL_CRITICAL_SECTION TppWorkerpListLock;
 	LIST_ENTRY TppWorkerpList;
 	PVOID WaitOnAddressHashTable[128];
-	PVOID TelemetryCoverageHeader; // REDSTONE3
+	PTELEMETRY_COVERAGE_HEADER TelemetryCoverageHeader; // REDSTONE3
 	ULONG CloudFileFlags;
 	ULONG CloudFileDiagFlags; // REDSTONE4
 	CHAR PlaceholderCompatibilityMode;
 	CHAR PlaceholderCompatibilityModeReserved[7];
-	struct _LEAP_SECOND_DATA* LeapSecondData; // REDSTONE5
+	PLEAP_SECOND_DATA LeapSecondData; // REDSTONE5
 	union
 	{
 		ULONG LeapSecondFlags;
@@ -1847,10 +1989,12 @@ typedef struct _PEB
 		{
 			ULONG SixtySecondEnabled : 1;
 			ULONG Reserved : 31;
-		}s4;
-	}u5;
+		};
+	};
 	ULONG NtGlobalFlag2;
+	ULONGLONG ExtendedFeatureDisableMask; // since WIN11
 } PEB, * PPEB;
+
 
 typedef struct _TEB
 {
@@ -2168,12 +2312,7 @@ typedef enum _TOKEN_INFORMATION_CLASS
 	MaxTokenInfoClass
 } TOKEN_INFORMATION_CLASS, * PTOKEN_INFORMATION_CLASS;
 */
-typedef enum _NT_PRODUCT_TYPE
-{
-	NtProductWinNt = 1,
-	NtProductLanManNt,
-	NtProductServer
-} NT_PRODUCT_TYPE, * PNT_PRODUCT_TYPE;
+
 
 #define PROCESSOR_FEATURE_MAX 64
 typedef enum _ALTERNATIVE_ARCHITECTURE_TYPE
@@ -2182,12 +2321,7 @@ typedef enum _ALTERNATIVE_ARCHITECTURE_TYPE
 	NEC98x86,
 	EndAlternatives
 } ALTERNATIVE_ARCHITECTURE_TYPE;
-typedef struct _KSYSTEM_TIME
-{
-	ULONG LowPart;
-	LONG High1Time;
-	LONG High2Time;
-} KSYSTEM_TIME, * PKSYSTEM_TIME;
+
 typedef struct _KUSER_SHARED_DATA
 {
 	ULONG TickCountLowDeprecated;
@@ -2362,3 +2496,4 @@ typedef struct _KUSER_SHARED_DATA
 	ULONG Spare;
 } KUSER_SHARED_DATA, * PKUSER_SHARED_DATA;
 #endif
+
