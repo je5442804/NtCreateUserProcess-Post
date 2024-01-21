@@ -66,6 +66,7 @@ Try the Native Edition [__NtCreateUserProcess-Native__](https://github.com/je544
 
 ## Tested on (x64 Only):  
  __Notice: On Windows 11 notepad.exe is AppX so it doesn't work__  
+ Windows 11 23H2 Insider x64 (26020.1000)  
  Windows 11 21H2 x64 (22000.613)  
  Windows 10 21H2 x64 (19044.1706)  
  Windows 10 21H1 x64 (19043.1023)  
