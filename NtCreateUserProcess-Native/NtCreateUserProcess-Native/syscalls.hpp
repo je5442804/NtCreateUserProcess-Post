@@ -11,11 +11,11 @@
 #define KI_USER_SHARED_DATA 0x7FFE0000
 #define SharedUserData  ((KUSER_SHARED_DATA * const) KI_USER_SHARED_DATA)
 
-#define SW3_SEED 0x61EA92A9
-#define SW3_ROL8(v) (v << 8 | v >> 24)
-#define SW3_ROR8(v) (v >> 8 | v << 24)
+#define SW3_SEED 0xE7E477BB
+#define SW3_ROL8(v) (v << 7 | v >> 22)
+#define SW3_ROR8(v) (v >> 7 | v << 22)
 #define SW3_ROX8(v) ((SW3_SEED % 2) ? SW3_ROL8(v) : SW3_ROR8(v))
-#define SW3_MAX_ENTRIES 500
+#define SW3_MAX_ENTRIES 520
 #define SW3_RVA2VA(Type, DllBase, Rva) (Type)((ULONG_PTR) DllBase + Rva)
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
 
@@ -103,7 +103,7 @@ typedef LONG KPRIORITY, * PKPRIORITY;
 
 typedef struct _SW3_SYSCALL_ENTRY
 {
-	DWORD Hash;
+	ULONG_PTR Hash;
 	DWORD Address;
 	PVOID SyscallAddress;
 } SW3_SYSCALL_ENTRY, * PSW3_SYSCALL_ENTRY;
@@ -127,10 +127,11 @@ typedef struct _SW3_LDR_DATA_TABLE_ENTRY {
 	PVOID DllBase;
 } SW3_LDR_DATA_TABLE_ENTRY, * PSW3_LDR_DATA_TABLE_ENTRY;
 
-DWORD SW3_HashSyscall(PCSTR FunctionName);
+ULONG_PTR SW3_HashSyscall(PCSTR FunctionName);
 BOOL SW3_PopulateSyscallList();
 typedef PVOID(WINAPI* RtlAllocateHeap_)(PVOID HeapHandle, ULONG Flags, SIZE_T Size);
 
+extern PVOID CsrPortHeap;
 extern HANDLE CsrPortHandle;
 extern ULONG_PTR CsrPortMemoryRemoteDelta;
 extern USHORT OSBuildNumber;
@@ -139,9 +140,7 @@ extern RtlAllocateHeap_ RtlAllocateHeap;
 
 EXTERN_C DWORD SW3_GetSyscallNumber(DWORD FunctionHash);
 EXTERN_C PVOID SW3_GetSyscallAddress(DWORD FunctionHash);
-EXTERN_C PVOID internal_cleancall_wow64_gate(VOID);
-
-
+EXTERN_C ULONG_PTR ABCDEFG(float a1, float a2, float a3, float a4, ULONG_PTR FunctionHash, PVOID* lpSyscallAddress);
 
 typedef struct _UNICODE_STRING
 {
@@ -669,17 +668,22 @@ typedef enum _ALPC_MESSAGE_INFORMATION_CLASS
 
 typedef enum _WORKERFACTORYINFOCLASS
 {
-	WorkerFactoryTimeout,
-	WorkerFactoryRetryTimeout,
-	WorkerFactoryIdleTimeout,
-	WorkerFactoryBindingCount,
-	WorkerFactoryThreadMinimum,
-	WorkerFactoryThreadMaximum,
-	WorkerFactoryPaused,
-	WorkerFactoryBasicInformation,
+	WorkerFactoryTimeout, // LARGE_INTEGER
+	WorkerFactoryRetryTimeout, // LARGE_INTEGER
+	WorkerFactoryIdleTimeout, // s: LARGE_INTEGER
+	WorkerFactoryBindingCount, // s: ULONG
+	WorkerFactoryThreadMinimum, // s: ULONG
+	WorkerFactoryThreadMaximum, // s: ULONG
+	WorkerFactoryPaused, // ULONG or BOOLEAN
+	WorkerFactoryBasicInformation, // q: WORKER_FACTORY_BASIC_INFORMATION
 	WorkerFactoryAdjustThreadGoal,
 	WorkerFactoryCallbackType,
-	WorkerFactoryStackInformation,
+	WorkerFactoryStackInformation, // 10
+	WorkerFactoryThreadBasePriority, // s: ULONG
+	WorkerFactoryTimeoutWaiters, // s: ULONG, since THRESHOLD
+	WorkerFactoryFlags, // s: ULONG
+	WorkerFactoryThreadSoftMaximum, // s: ULONG
+	WorkerFactoryThreadCpuSets, // since REDSTONE5
 	MaxWorkerFactoryInfoClass
 } WORKERFACTORYINFOCLASS, * PWORKERFACTORYINFOCLASS;
 

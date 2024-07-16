@@ -9,7 +9,6 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 	ApiMessage->ApiNumber = ApiNumber & ~0x10000000;
 	ApiMessage->h.u2.ZeroInit = 0;
 
-	// What if Length OverFlow?
 	// ApiMessage->h.u1.Length = (DataLength | (DataLength << 16)) + (((sizeof(CSR_API_MSG) - sizeof(ApiMessage->u)) << 16) | (FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h)));// +0x400018
 	ApiMessage->h.u1.s1.DataLength = (USHORT)DataLength + FIELD_OFFSET(CSR_API_MSG, u) - sizeof(ApiMessage->h);
 	ApiMessage->h.u1.s1.TotalLength = (USHORT)DataLength + sizeof(CSR_API_MSG) - sizeof(ApiMessage->u);
@@ -64,6 +63,7 @@ NTSTATUS CsrClientCallServer(PCSR_API_MSG ApiMessage, PCSR_CAPTURE_BUFFER  Captu
 		ApiMessage->ReturnValue = Status;
 	return ApiMessage->ReturnValue;
 }
+
 void Fastmemcpy(void* dest, void* src, int size)
 {
 	unsigned char* pdest = (unsigned char*)dest;
@@ -85,6 +85,7 @@ void Fastmemcpy(void* dest, void* src, int size)
 		++psrc;
 	}
 }
+
 ULONG CsrAllocateMessagePointer(PCSR_CAPTURE_BUFFER CaptureBuffer, ULONG Length, PVOID* Pointer)
 {
 	if (Length == 0) {
@@ -102,12 +103,14 @@ ULONG CsrAllocateMessagePointer(PCSR_CAPTURE_BUFFER CaptureBuffer, ULONG Length,
 	CaptureBuffer->MessagePointerOffsets[CaptureBuffer->CountMessagePointers++] = (ULONG_PTR)Pointer;
 	return Length;
 }
+
 void CsrCaptureMessageString(PCSR_CAPTURE_BUFFER CaptureBuffer, PWSTR String, ULONG Length, ULONG MaximumLength, PUNICODE_STRING CapturedString)
 {
 	CapturedString->Length = (USHORT)Length;
 	CapturedString->MaximumLength = (USHORT)CsrAllocateMessagePointer(CaptureBuffer, MaximumLength, (PVOID*)&CapturedString->Buffer);
 	Fastmemcpy(CapturedString->Buffer, String, MaximumLength);
 }
+
 NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutCaptureBuffer, ULONG NumberOfStringsToCapture, const PUNICODE_STRING* StringsToCapture)
 {
 	ULONG Length = 0;
@@ -126,18 +129,15 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 		Length = (Length + (3 * (NumberOfStringsToCapture + 1))) & ~3;
 		if (Length >= MAXLONG)//Post btter
 			return STATUS_INVALID_PARAMETER;
-		//Try to evade use HeapAlloc|RtlAllocHeap,however this way is really unsafe & dangerous...
-		//Well, we are likely on the razor's edge..... 游走于刀尖之上...
-		//What if CaptureBuffer to Allocated is bigger than excepted, try to alloc new memroy? 
-		//How to get CsrPortHeap Address?
-		//1: A HeapMemroy ID=2 ,type = Mapped:Commited, BaseAddress < NtCurrentPeb()->ProcessHeap(EZ)
-		//2: find with signcode 
-		PVOID CsrPortHeap = *(PVOID*)((ULONG_PTR)(NtCurrentPeb()->ProcessHeaps) + 8);//id = 2,so the second heap is +8
+		
 		//wprintf(L"(char)NtCurrentPeb()->ReadOnlyStaticServerData-(char*)NtCurrentPeb()->ReadOnlySharedMemoryBase = 0x%08x\n", (char*)NtCurrentPeb()->ReadOnlyStaticServerData - (NtCurrentPeb()->ReadOnlySharedMemoryBase));
 		CaptureBuffer = (PCSR_CAPTURE_BUFFER)((ULONG_PTR)CsrPortHeap + ((ULONG_PTR)NtCurrentPeb()->ReadOnlyStaticServerData - (ULONG_PTR)NtCurrentPeb()->ReadOnlySharedMemoryBase));//Thank you!
+		
 		if (!CaptureBuffer)
 			return STATUS_NO_MEMORY;
+
 		wprintf(L"[+] CaptureBuffer FakeAlloc = 0x%p\n", CaptureBuffer);
+
 		CaptureBuffer->Length = Length;
 		CaptureBuffer->CountMessagePointers = 0;
 		CaptureBuffer->FreeSpace = (char*)CaptureBuffer->MessagePointerOffsets + NumberOfStringsToCapture * sizeof(ULONG_PTR);
@@ -157,6 +157,7 @@ NTSTATUS CsrCaptureMessageMultiUnicodeStringsInPlace(PCSR_CAPTURE_BUFFER* InOutC
 	}
 	return 0;
 }
+
 NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, UNICODE_STRING Win32ImagePath, UNICODE_STRING NtImagePath, CLIENT_ID ClientId, SECTION_IMAGE_INFORMATION SectionImageInfomation)
 {
 	NTSTATUS Status = NULL;
@@ -175,7 +176,7 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	{
 	case IMAGE_FILE_MACHINE_I386:
 		//If this is a .NET ILONLY that needs to run in a 64-bit addressspace, then let SXS be aware of this
-		if (CreateInfo.SuccessState.u2.OutputFlags & 0x2)
+		if (CreateInfo.SuccessState.u2.s2.AddressSpaceOverride)
 			ImageProcessorArchitecture = SharedUserData->NativeProcessorArchitecture;
 		else
 			ImageProcessorArchitecture = PROCESSOR_ARCHITECTURE_IA32_ON_WIN64;
@@ -198,7 +199,8 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		break;
 	}
 
-	CultureFallBacks.Buffer = (PWSTR)L"zh-CN\0zh-Hans\0zh\0en-US\0en"; // zh-CN en-US
+	// Weird L":" auto appended behind 2 bytes L"zh-CN\0zh-Hans\0zh\0en-US\0en" in LLVM (e.n...:.)
+	CultureFallBacks.Buffer = (PWSTR)L"zh-CN\0zh-Hans\0zh\0en-US\0en\0"; // zh-CN en-US
 	CultureFallBacks.Length = 54;//8?
 	CultureFallBacks.MaximumLength = 54;//8
 
@@ -211,11 +213,13 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 	BaseCreateProcessMessage->ClientId = ClientId;
 	BaseCreateProcessMessage->CreationFlags = 0;
 	BaseCreateProcessMessage->VdmBinaryType = NULL;
+
+	wprintf(L"[*] OS: %d\n", OSBuildNumber);
 	wprintf(L"============================================================================================\n");
-	wprintf(L"OS: %d\n", OSBuildNumber);
+	
 	if (OSBuildNumber >= 18985)//19041 ? 19000
 	{
-		wprintf(L"[*] Windows 10 2004+ | Windows 11 | Windows Server 2022\n");
+		wprintf(L"[*] Windows 10 2004+ | Windows 11+ | Windows Server 2022+\n");
 		CustomSecureZeroMemory(&BaseCreateProcessMessage->u.win2022.Sxs, sizeof((BaseCreateProcessMessage->u).win2022.Sxs));
 		BaseCreateProcessMessage->u.win2022.Sxs.FileHandle = CreateInfo.SuccessState.FileHandle;
 		BaseCreateProcessMessage->u.win2022.Sxs.ManifestAddress = (PVOID)CreateInfo.SuccessState.ManifestAddress;
@@ -281,15 +285,17 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		wprintf(L"[-] Unknow OSBuildNumber or it isn't supported.\n");
 		return STATUS_NOT_SUPPORTED;
 	}
+
 	if (CsrStringsToCapture[0]->Length != 0)
 	{
 		wprintf(L"BaseCreateProcessMessage->Sxs.Win32ImagePath: %ls\n", CsrStringsToCapture[0]->Buffer);
 		wprintf(L"BaseCreateProcessMessage->Sxs.NtImagePath: %ls\n", CsrStringsToCapture[1]->Buffer);
-		wprintf(L"BaseCreateProcessMessage->Sxs.CultureFallBacks: %ls\n", CsrStringsToCapture[2]->Buffer);
-		wprintf(L"BaseCreateProcessMessage->Sxs.AssemblyName: %ls\n", CsrStringsToCapture[3]->Buffer);
-		// DbgPrint( "*** CSRSS: CaptureBuffer outside of ClientView\n" );
-		// CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xC000000D)
-		
+		wprintf(L"BaseCreateProcessMessage->Sxs.CultureFallBacks: ");
+		WriteConsoleW(GetStdHandle(STD_OUTPUT_HANDLE), CsrStringsToCapture[2]->Buffer, CsrStringsToCapture[2]->Length / 2, NULL, 0);
+		wprintf(L"\nBaseCreateProcessMessage->Sxs.AssemblyName: %ls\n", CsrStringsToCapture[3]->Buffer);
+
+		//DbgPrint( "*** CSRSS: CaptureBuffer outside of ClientView\n" );
+		//CaptureBuffer should in ClientView [CsrPortHeap] or return STATUS_INVALID_PARAMETER(0xC000000D)
 		wprintf(L"[+] CsrCaptureMessageMultiUnicodeStringsInPlace: 0x%08x\n", CsrCaptureMessageMultiUnicodeStringsInPlace(&CaptureBuffer, 4, CsrStringsToCapture));
 		return CsrClientCallServer((PCSR_API_MSG)&BaseAPIMessage, CaptureBuffer, CSRAPINumber, DataLength);
 	}
@@ -298,4 +304,3 @@ NTSTATUS CallCsrss(HANDLE hProcess, HANDLE hThread, PS_CREATE_INFO CreateInfo, U
 		return STATUS_ACCESS_VIOLATION;
 	}
 }
-

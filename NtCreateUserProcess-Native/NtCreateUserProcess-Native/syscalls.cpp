@@ -1,24 +1,31 @@
 ﻿#include "syscalls.hpp"
+#include "ntapi.hpp"
 #include <stdio.h>
+#include <intrin.h>
 
 #define JUMPER
-SW3_SYSCALL_LIST SW3_SyscallList;
-HANDLE CsrPortHandle;
-ULONG_PTR CsrPortMemoryRemoteDelta;
-USHORT OSBuildNumber;
-HANDLE ConhostConsoleHandle;
+
+const static BYTE signaturecode[] = { 0x00, 0x48, 0x85, 0xc9, 0x48, 0x89, 0x35 };//0x75 0x07, 0xeb, 0x0a
+SW3_SYSCALL_LIST SW3_SyscallList = { 0 };
+PVOID CsrPortHeap = 0;
+HANDLE CsrPortHandle = NULL;
+ULONG_PTR CsrPortMemoryRemoteDelta = 0;
+USHORT OSBuildNumber = 0;
+HANDLE ConhostConsoleHandle = NULL;
 RtlAllocateHeap_ RtlAllocateHeap;
+const static BYTE signaturecode2[] = { 0x48, 0x89, 0x05, 0x00, 0xe8, 0x00, 0x4c, 0x8b, 0x45, 0x00, 0x4c, 0x8b, 0x84, 0x24 };
 
 
-DWORD SW3_HashSyscall(PCSTR FunctionName)
+ULONG_PTR SW3_HashSyscall(PCSTR FunctionName)
 {
 	DWORD i = 0;
-	DWORD Hash = SW3_SEED;
+	ULONG_PTR Hash = SW3_SEED;
 
 	while (FunctionName[i])
 	{
 		WORD PartialName = *(WORD*)((ULONG_PTR)FunctionName + i++);
-		Hash ^= PartialName + SW3_ROR8(Hash);
+		Hash ^= (ULONG_PTR)PartialName * SW3_ROR8(Hash);
+		Hash *= 2;
 	}
 
 	return Hash;
@@ -26,7 +33,7 @@ DWORD SW3_HashSyscall(PCSTR FunctionName)
 
 PVOID SC_Address(PVOID NtApiAddress)
 {
-	DWORD searchLimit = 512;
+	DWORD searchLimit = 520;
 	PVOID SyscallAddress;
 	BYTE syscall_code[] = { 0x0f, 0x05, 0xc3 };
 	ULONG distance_to_syscall = 0x12;
@@ -74,8 +81,15 @@ int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD Si
 {
 	//48 8B 4C 24 50 这个也可以?
 	SizeOfNtdll -= 0x100;
-	BYTE signaturecode[] = { 0x00, 0x48, 0x85, 0xc9, 0x48, 0x89, 0x35 };//0x75 0x07, 0xeb, 0x0a
-	BYTE signaturecode2[] = { 0x48, 0x89, 0x05, 0x00, 0xe8, 0x00, 0x4c, 0x8b, 0x45, 0x00, 0x4c, 0x8b, 0x84, 0x24};
+	const static BYTE signaturecode3[] = { 0xb9, 0x00, 0x80, 0x00, 0x00 };
+
+	//Try to evade use HeapAlloc|RtlAllocHeap,however this way is really unsafe & dangerous...
+		//Well, we are likely on the razor's edge..... 游走于刀尖之上...
+		//What if CaptureBuffer to Allocated is bigger than excepted, try to alloc new memroy? 
+		//How to get CsrPortHeap Address?
+		//1: A HeapMemroy ID=2 ,type = Mapped:Commited, BaseAddress < NtCurrentPeb()->ProcessHeap(EZ)
+		//2: find with signcode 
+	CsrPortHeap = *(PVOID*)((ULONG_PTR)(NtCurrentPeb()->ProcessHeaps) + 8);//id = 2,so the second heap is +8
 
 	// mov r8, ...
 	// 4C 8B 84 24
@@ -92,8 +106,30 @@ int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD Si
 			&& !memcmp((char*)signaturecode + 4, (char*)tempaddress - 6, 3))
 		{
 			//wprintf(L"found: 0x%p\n", tempaddress);
-
-
+			if (!CsrPortHeap)
+			{
+				// Windows 11 24H2 Insider
+				PVOID x = (char*)tempaddress;
+				for (int j = 0; j <= 0x80; j++)
+				{
+					if (!memcmp(signaturecode3, (char*)x - j, 5))
+					{
+						x = (char*)x - j + 5;
+						for (int z = 0; z <= 0x40; z++)
+						{
+							if (!memcmp(signaturecode2, (char*)x + z, 3))
+							{
+								x = (char*)x + z + 3;
+								PVOID CsrPortHeapAddress = (char*)x + 4 + *(DWORD*)x;
+								CsrPortHeap = *(PVOID*)CsrPortHeapAddress;
+								break;
+							}
+						}
+						break;
+					}
+				}
+				
+			}
 			PVOID CsrPortHandleAddress = ((char*)tempaddress + 1) + *((DWORD*)((__int64)tempaddress - 3));
 			//wprintf(L"[+] Get CsrPortHandle Address: 0x%p\n", CsrPortHandleAddress);
 			CsrPortHandle = *(PVOID*)CsrPortHandleAddress;
@@ -118,6 +154,19 @@ int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD Si
 		}
 	}	
 
+	//find consolehandle
+		/*
+		typedef _CONSOLE_INFO{
+			ULONGLONG ConsoleConnectionState;//0 <---  PS_STD_* likly
+			HANDLE CurrentConsoleHandle;//8
+			HANDLE ConhostConsoleHandle;//16 <-- This one!
+			HANDLE StandardInput;/24
+			HANDLE StandardOutput;//32
+			HANDLE StandardError;//40
+			BOOLEAN CreateConsoleSuccess;//48
+		}CONSOLE_INFO, *PCONSOLE_INFO;//56
+	*/
+
 	if (OSBuildNumber > 7601 && KernelBase)
 	{
 		PVOID FreeConsoleAddress = (PVOID)GetProcAddress((HMODULE)KernelBase, "FreeConsole");
@@ -133,23 +182,15 @@ int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD Si
 				//wprintf(L"[+] Get ConhostConsoleHandleAddress Address: 0x%p\n", ConhostConsoleHandleAddress);
 				ConhostConsoleHandle = *(HANDLE*)ConhostConsoleHandleAddress;
 
-				wprintf(L"[+] ConhostConsoleHandle: 0x%p\n", (PVOID)ConhostConsoleHandle);
+				
 				break;
 			}
 		}
-		//find consolehandle
-		/*
-		typedef _CONSOLE_INFO{
-			ULONGLONG ConsoleConnectionState;//0 <---  PS_STD_* likly
-			HANDLE CurrentConsoleHandle;//8
-			HANDLE ConhostConsoleHandle;//16 <-- This one!
-			HANDLE StandardInput;/24
-			HANDLE StandardOutput;//32
-			HANDLE StandardError;//40
-			BOOLEAN CreateConsoleSuccess;//48
-		}CONSOLE_INFO, *PCONSOLE_INFO;//56
-		*/
+		
 	}
+
+	wprintf(L"[+] CsrPortHeap: 0x%p\n", CsrPortHeap);
+	wprintf(L"[+] ConhostConsoleHandle: 0x%p\n", (PVOID)ConhostConsoleHandle);
 
 	return 0;
 }
@@ -157,9 +198,10 @@ int GetGlobalVariable(PVOID Ntdll, DWORD SizeOfNtdll, PVOID KernelBase, DWORD Si
 BOOL SW3_PopulateSyscallList()
 {
 	// Return early if the list is already populated.
-	if (SW3_SyscallList.Count) return TRUE;
-	PPEB Peb = (PPEB)__readgsqword(0x60);
-	PSW3_PEB_LDR_DATA Ldr = Peb->Ldr;
+	if (SW3_SyscallList.Entries[0].Address)
+		return TRUE;
+	
+	PSW3_PEB_LDR_DATA Ldr = NtCurrentPeb()->Ldr;
 	PIMAGE_EXPORT_DIRECTORY ExportDirectory = NULL;
 	PIMAGE_EXPORT_DIRECTORY ExportDirectoryNtdll = NULL;
 	PVOID DllBase = NULL;
@@ -204,7 +246,7 @@ BOOL SW3_PopulateSyscallList()
 	}
 	if (!ExportDirectoryNtdll || !Ntdll)
 		return FALSE;
-	OSBuildNumber = Peb->OSBuildNumber;
+	OSBuildNumber = NtCurrentPeb()->OSBuildNumber;
 	RtlAllocateHeap = (RtlAllocateHeap_)GetProcAddress((HMODULE)Ntdll, "RtlAllocateHeap");
 
 	GetGlobalVariable(Ntdll, SizeOfNtdll, KernelBase, SizeofKernelBase);
@@ -228,7 +270,7 @@ BOOL SW3_PopulateSyscallList()
 		{
 			Entries[i].Hash = SW3_HashSyscall(FunctionName);
 			Entries[i].Address = Functions[Ordinals[NumberOfNames - 1]];
-			Entries[i].SyscallAddress = SC_Address(SW3_RVA2VA(PVOID, Ntdll, Entries[i].Address));
+			Entries[i].SyscallAddress = (PVOID)((ULONG_PTR)SC_Address(SW3_RVA2VA(PVOID, Ntdll, Entries[i].Address)) << (Entries[i].Hash % 8));
 
 			i++;
 			if (i == SW3_MAX_ENTRIES) break;
@@ -262,49 +304,30 @@ BOOL SW3_PopulateSyscallList()
 			}
 		}
 	}
+	for (DWORD i = 0; i < SW3_SyscallList.Count - 1; i++)
+	{
+		Entries[i].Address = Entries[i].Hash * (DWORD)Entries[i].SyscallAddress << i;
+	}
 
 	return TRUE;
 }
-EXTERN_C DWORD SW3_GetSyscallNumber(DWORD FunctionHash)
+
+EXTERN_C ULONG_PTR ABCDEFG(float a1, float a2, float a3, float a4, ULONG_PTR FunctionHash, PVOID* lpSyscallAddress)
 {
-	// Ensure SW3_SyscallList is populated.
-	if (!SW3_PopulateSyscallList()) return -1;
+	if (!SW3_PopulateSyscallList())
+		return 0;
+	
+	ULONG Index = ((ULONG_PTR)lpSyscallAddress | (ULONG_PTR)&FunctionHash * FunctionHash + (ULONG_PTR)(a1 + a2 + a3 + a4)) % SW3_SyscallList.Count;
+	*lpSyscallAddress = (PVOID)((ULONG_PTR)SW3_SyscallList.Entries[Index].SyscallAddress >> (SW3_SyscallList.Entries[Index].Hash % 8));
 
 	for (DWORD i = 0; i < SW3_SyscallList.Count; i++)
 	{
 		if (FunctionHash == SW3_SyscallList.Entries[i].Hash)
 		{
-			return i;
+			return i|(((ULONG_PTR)&i * FunctionHash) << 32);
 		}
 	}
+	a1 = a2 - a3;
 
-	return -1;
-}
-EXTERN_C PVOID SW3_GetSyscallAddress(DWORD FunctionHash)
-{
-	// Ensure SW3_SyscallList is populated.
-	if (!SW3_PopulateSyscallList()) return NULL;
-
-	for (DWORD i = 0; i < SW3_SyscallList.Count; i++)
-	{
-		if (FunctionHash == SW3_SyscallList.Entries[i].Hash)
-		{
-			return SW3_SyscallList.Entries[i].SyscallAddress;
-		}
-	}
-
-	return NULL;
-}
-EXTERN_C PVOID SW3_GetRandomSyscallAddress(DWORD FunctionHash)
-{
-	// Ensure SW3_SyscallList is populated.
-	if (!SW3_PopulateSyscallList()) return NULL;
-
-	DWORD index = ((DWORD)rand()) % SW3_SyscallList.Count;
-
-	while (FunctionHash == SW3_SyscallList.Entries[index].Hash) {
-		// Spoofing the syscall return address
-		index = ((DWORD)rand()) % SW3_SyscallList.Count;
-	}
-	return SW3_SyscallList.Entries[index].SyscallAddress;
+	return a1*a3+ (a2 / (a1+a2+a3+a4)); //| a3 * a4;
 }

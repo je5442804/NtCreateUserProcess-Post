@@ -43,8 +43,16 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="syscalls.asm">
+    <CustomBuild Include="syscalls1.asm">
       <Filter>源文件</Filter>
     </CustomBuild>
+    <CustomBuild Include="syscalls2.asm">
+      <Filter>源文件</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="syscalls0.asm">
+      <Filter>源文件</Filter>
+    </None>
   </ItemGroup>
 </Project>

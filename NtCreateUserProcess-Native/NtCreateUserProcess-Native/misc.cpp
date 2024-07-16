@@ -39,7 +39,7 @@ ULONG GetProcessParametersStructsLength(USHORT BuildNumber)
 	{
 		ProcessParametersLength = 0x3F8;//1016
 	}
-	wprintf(L"[+] OS: %d, ProcessParametersLength = 0x%x\n", BuildNumber, ProcessParametersLength);
+	//wprintf(L"[+] OS: %d, ProcessParametersLength = 0x%x\n", BuildNumber, ProcessParametersLength);
 	return ProcessParametersLength;
 }
 void CreateInfoOutPut(PS_CREATE_INFO CreateInfo)

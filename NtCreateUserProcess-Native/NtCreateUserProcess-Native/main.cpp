@@ -115,21 +115,22 @@ int wmain(int argc, wchar_t* argv[])
 	UNICODE_STRING Win32ImagePath = { 0 };
 	UNICODE_STRING CommandLine = { 0 };
 
-
-	Status = NtOpenProcess(&ParentProcessHandle, PROCESS_ALL_ACCESS, &ObjectAttributes, &ClientId);
+	Status = NtOpenProcess(&ParentProcessHandle, PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, &ObjectAttributes, &ClientId);
 	ClientId = { 0 };
 	if (!NT_SUCCESS(Status))
 	{
-		wprintf(L"[-] NtOpenProcess: 0x%08x\n", Status);
+		//wprintf(L"[-] NtOpenProcess: 0x%08x\n", Status);
 		return Status;
 	}
-	wprintf(L"[+] Parent process handle: %p\n", ParentProcessHandle);
-	Status = NtOpenProcessToken(ParentProcessHandle, TOKEN_ALL_ACCESS, &TokenHandle);
+
+	wprintf(L"[+] Parent ProcessHandle: %p\n", ParentProcessHandle);
+	Status = NtOpenProcessToken(NtCurrentProcess(), TOKEN_ALL_ACCESS, &TokenHandle);
 	if (!NT_SUCCESS(Status))
 	{
 		wprintf(L"[-] NtOpenProcessToken: 0x%08x\n", Status);
 		return Status;
 	}
+
 	wprintf(L"[+] TokenHandle: 0x%p\n", TokenHandle);
 	NtClose(ParentProcessHandle);
 	ParentProcessHandle = NULL;//ov0
@@ -174,7 +175,7 @@ int wmain(int argc, wchar_t* argv[])
 	//
 	// CreateInfo.InitState.u1.s1.ProhibitedImageCharacteristics = IMAGE_FILE_DLL;
 	CreateInfo.InitState.AdditionalFileAccess = FILE_READ_ATTRIBUTES | FILE_READ_DATA;
-
+	
 	//1088 + 520 = 1608
 	ULONG ProcessParametersLength = GetProcessParametersStructsLength(OSBuildNumber);// It's doesn't matter if bigger than expectation.
 
@@ -189,7 +190,6 @@ int wmain(int argc, wchar_t* argv[])
 	ProcessParametersLength += ALIGN(OwnParameters->DllPath.MaximumLength, sizeof(ULONG_PTR));//DllPath NtCurrentProcess()
 	// ProcessParametersLength += ALIGN(OwnParameters->RedirectionDllName.MaximumLength, sizeof(ULONG_PTR));// AppXDllDirectory: RedirectionDllName
 
-	//wprintf(L"Length = %d\n", ProcessParametersLength);
 	ProcessParameters = (PRTL_USER_PROCESS_PARAMETERS)RtlAllocateHeap(RtlProcessHeap(), HEAP_ZERO_MEMORY, ProcessParametersLength);
 	if (!ProcessParameters)
 		return STATUS_NO_MEMORY;
@@ -215,7 +215,7 @@ int wmain(int argc, wchar_t* argv[])
 	// 7601 and below OS std io are not hold with conhost.exe directly
 	if (Interact == 0)
 	{
-		wprintf(L"[*] CREATE_NEW_CONSOLE...\n");
+		wprintf(L"[*] Separate I/O Buffers\n");
 
 		//
 		// ProcessParameters->ConsoleHandle = NULL;
@@ -301,12 +301,12 @@ int wmain(int argc, wchar_t* argv[])
 			StdHandle.PseudoHandleMask |= CONSOLE_HANDLE(ProcessParameters->StandardError) ? PS_STD_ERROR_HANDLE : 0;
 			wprintf(L"[*] Old StdHandle.HandleMask Set!\n");
 		}
+
 		AttributeList.Attributes[AttributeCount].Attribute = PS_ATTRIBUTE_STD_HANDLE_INFO;
 		AttributeList.Attributes[AttributeCount].Size = sizeof(PS_STD_HANDLE_INFO);
 		AttributeList.Attributes[AttributeCount].ReturnLength = 0;
 		AttributeList.Attributes[AttributeCount].ValuePtr = &StdHandle;
 		AttributeCount++;
-
 	}
 	AttributeList.TotalLength = AttributeCount * sizeof(PS_ATTRIBUTE) + sizeof(SIZE_T);
 	wprintf(L"[*] AttributeList.TotalLength = %lld, AttributeCount = %ld\n", AttributeList.TotalLength, AttributeCount);
@@ -336,14 +336,13 @@ int wmain(int argc, wchar_t* argv[])
 
 		if (Interact != 0)
 		{
-			//For test only, there is no need to waitfor handle in fact.
-			NtWaitForSingleObject(hThread, FALSE, NULL);
-			wprintf(L"[!] New Process Exited!");
+			wprintf(L"[!] New Process Exited: ");
+			Status = NtWaitForSingleObject(hThread, FALSE, NULL);
+
 			Status = NtQueryInformationProcess(hProcess, ProcessBasicInformation, &ProcessBasicInfo, sizeof(PROCESS_BASIC_INFORMATION), &ReturnLength);
-			//Status = NtQueryInformationThread(hThread, ThreadBasicInformation, &ThreadBasicInfo, sizeof(THREAD_BASIC_INFORMATION), &ReturnLength);
 			if (NT_SUCCESS(Status))
 			{
-				wprintf(L" ExitStatus: 0x%08lx\n", ProcessBasicInfo.ExitStatus);
+				wprintf(L"0x%08lx\n", ProcessBasicInfo.ExitStatus);
 			}
 		}
 	}
@@ -352,18 +351,20 @@ int wmain(int argc, wchar_t* argv[])
 	{
 		NtClose(ParentProcessHandle);
 		ParentProcessHandle = NULL;
+	
 	}
+
 	NtClose(TokenHandle);
 	NtClose(hProcess);
 	NtClose(hThread);
 	NtClose(CreateInfo.SuccessState.FileHandle);
 	NtClose(CreateInfo.SuccessState.SectionHandle);
+
 	CustomSecureZeroMemory(ProcessParameters, ProcessParametersLength);
-	ProcessParameters = NULL;
-	AttributeList = { 0 };
 	CustomSecureZeroMemory(&AttributeList, AttributeList.TotalLength);
 	CustomSecureZeroMemory(&ProcessBasicInfo, sizeof(PROCESS_BASIC_INFORMATION));
-	//CustomSecureZeroMemory(&ThreadBasicInfo, sizeof(THREAD_BASIC_INFORMATION));
-
+	
+	ProcessParameters = NULL;
+	AttributeList = { 0 };
 	return 0;
 }
